@@ -1,0 +1,16 @@
+.topnav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: #111827;
+  color: #fff;
+  .brand { font-weight: 700; margin-right: auto; }
+  a { color: #d1d5db; text-decoration: none; font-weight: 500; }
+  a.active, a:hover { color: #fff; text-decoration: underline; }
+}
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}

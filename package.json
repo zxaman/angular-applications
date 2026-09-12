@@ -1,0 +1,44 @@
+{
+  "name": "angular-applications",
+  "version": "0.0.0",
+  "scripts": {
+    "ng": "ng",
+    "start": "ng serve web-app",
+    "start:web-app": "ng serve web-app",
+    "start:admin-app": "ng serve admin-app --port 4201",
+    "build": "ng build shared-ui && ng build web-app && ng build admin-app",
+    "build:web-app": "ng build web-app",
+    "build:admin-app": "ng build admin-app",
+    "build:shared-ui": "ng build shared-ui",
+    "watch:shared-ui": "ng build shared-ui --watch",
+    "test": "ng test web-app --watch=false && ng test admin-app --watch=false && ng test shared-ui --watch=false",
+    "test:web-app": "ng test web-app",
+    "test:admin-app": "ng test admin-app",
+    "test:shared-ui": "ng test shared-ui",
+    "generate:app": "ng generate application",
+    "generate:lib": "ng generate library",
+    "generate:component": "ng generate component"
+  },
+  "private": true,
+  "packageManager": "npm@11.19.1",
+  "dependencies": {
+    "@angular/common": "^22.1.0",
+    "@angular/compiler": "^22.1.0",
+    "@angular/core": "^22.1.0",
+    "@angular/forms": "^22.1.0",
+    "@angular/platform-browser": "^22.1.0",
+    "@angular/router": "^22.1.0",
+    "rxjs": "~7.8.0",
+    "tslib": "^2.3.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.1.8",
+    "@angular/cli": "^22.1.8",
+    "@angular/compiler-cli": "^22.1.0",
+    "jsdom": "^28.0.0",
+    "ng-packagr": "^22.1.0",
+    "prettier": "^3.8.1",
+    "typescript": "~6.0.2",
+    "vitest": "^4.0.8"
+  }
+}
