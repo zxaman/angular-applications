@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `legacy-peer-deps` is committed in .npmrc, so a plain `npm ci` matches
+      # what a contributor gets locally.
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck every workspace
+        run: npm run typecheck
+
+      - name: Unit tests (schema, widgets, generator)
+        run: npm run test:libs
+
+      - name: Unit tests (studio)
+        run: npm run test:builder
+
+      - name: Build the studio
+        run: npm run build
+
+      - name: Export the sample project
+        run: npm run export:sample
+
+      # The point of the whole repo: the generated app must compile on its own.
+      - name: Install the generated project
+        working-directory: exports/sample
+        run: npm install --no-audit --no-fund
+
+      - name: Build the generated project
+        working-directory: exports/sample
+        run: npx ng build
+
+      - name: Test the generated project
+        working-directory: exports/sample
+        run: npx ng test --watch=false

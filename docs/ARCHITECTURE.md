@@ -62,18 +62,30 @@ AppDocument
 ├── meta                            // name, description, author, timestamps
 ├── theme: ThemeTokens              // exported as --as-* custom properties
 ├── globalStyles: StyleFile[]       // user imported global .css/.scss
+├── assets: AssetFile[]             // uploaded images (base64), exported to public/assets
+├── state: StateVariable[]          // app variables the document can bind to
+├── components: ComponentDef[]      // reusable components and their inputs
 ├── pages: PageDef[]                // name, route, title, root: AppNode
 └── settings                        // component prefix, default breakpoint, capacitor flag
 
 AppNode
 ├── id / type / name
 ├── componentName?                  // set ⇒ extracted into its own component on export
-├── props: Record<string, scalar>   // widget properties, JSON serialisable only
+├── instance?                       // { componentId, props } ⇒ a reusable component, not a subtree
+├── props: Record<string, scalar>   // widget properties; string values may hold {{ state.x }}
+├── repeat?: RepeatConfig           // iterate a list over the node and its subtree
+├── actions?: NodeAction[]          // navigate / openUrl / setState / http on click|change|submit
 ├── style: CssMap                   // base styles
 ├── styles?: { sm?, md?, lg?, xl? } // per-breakpoint overrides (mobile first)
 ├── css? / cssFileName?             // stylesheet imported for THIS node only
 └── children: AppNode[]
 ```
+
+Bindings are **plain strings**, not a parallel AST: any string property or piece of text may contain
+`{{ state.counter }}` or `{{ item.name }}` inside a repeater. `state.ts` parses them into a
+`BindingContext`, which the canvas uses to resolve values live and the generator uses to emit
+`{{ store.counter() }}` / `[attr]="'x' + store.value()"`. One representation, two consumers, nothing
+to keep in sync.
 
 Rules that keep this model cheap to work with:
 
@@ -205,6 +217,11 @@ Every mutation funnels through `commit()`, which snapshots the previous document
 (capped at 60 entries) and flags the project dirty. Selection, viewport and panel state are
 deliberately *outside* history — undoing a click would be maddening.
 
+A third computed layer sits on top: `previewState` walks the tree, evaluates `{{ state.* }}`
+bindings against `doc.state` and runs set-state actions when *Preview* is on, so the canvas shows
+real values instead of placeholders. `state.issues` runs the same `validateDocument()` the exporter
+runs, which is what powers the *Checks* panel — one source of truth for "will this export cleanly".
+
 The app is **zoneless** and uses signal inputs/outputs throughout, with `OnPush` everywhere.
 The canvas rebuilds a subtree with `Renderer2` when its node input changes; selection changes only
 propagate `selectedId` downwards, so clicking around does not rebuild the DOM.
@@ -248,12 +265,14 @@ The palette, inspector, canvas preview and exporter pick the widget up automatic
 
 ## 10. Known limitations and roadmap
 
-- **No data binding yet.** Exported templates use literals; there is no notion of app state,
-  collections or repeaters. Next step is a `DataSource` in the schema plus `@for` emission.
-- **Actions are stubs.** Click handlers are generated as `TODO` methods rather than wired to a
-  configurable action graph (navigate / call API / set state).
+- **Actions cover four kinds** (navigate, open URL, set state, HTTP). Routing conditions,
+  authentication flows, delays and loops are not modelled yet, and set-state values are literals or
+  static bindings rather than arbitrary expressions.
 - **No two-way preview of hand edits.** Importing an exported project back into the studio is not
   supported; the `.appstudio.json` document is the interchange format.
+- **Image assets are stored in the document** as base64, which is convenient (one file to save and
+  move) but means a large upload inflates the saved project; an object-storage variant would be the
+  next step for production use.
 - **Canvas hit testing** uses midpoint comparisons rather than true flex/grid gap awareness, so
   drop positions in dense grids can be approximate.
 - **Capacitor** is generated as configuration only (`capacitor.config.ts` + dependencies); running
