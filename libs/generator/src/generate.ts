@@ -88,6 +88,15 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
     ...globalStyleFiles,
   ];
 
+  for (const asset of doc.assets ?? []) {
+    files.push({
+      path: `public/assets/${asset.name}`,
+      contents: asset.base64,
+      kind: 'other',
+      encoding: 'base64',
+    });
+  }
+
   if (doc.state.length > 0) {
     files.push({ path: 'src/app/core/app-store.ts', contents: emitAppStore(doc.state), kind: 'ts' });
   }
@@ -128,6 +137,7 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
       importedStylesheets: globalStylePaths.length,
       stateVariables: doc.state.length,
       actions: everyAction.length,
+      assets: (doc.assets ?? []).length,
     },
   };
 }

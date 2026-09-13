@@ -29,6 +29,8 @@ export interface GeneratedFile {
   path: string;
   contents: string;
   kind: FileKind;
+  /** `base64` for binary payloads such as uploaded images. */
+  encoding?: 'utf8' | 'base64';
 }
 
 export interface GenerateStats {
@@ -39,6 +41,7 @@ export interface GenerateStats {
   importedStylesheets: number;
   stateVariables: number;
   actions: number;
+  assets: number;
 }
 
 export interface GenerateResult {

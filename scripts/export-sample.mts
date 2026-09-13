@@ -15,8 +15,10 @@ import { fileURLToPath } from 'node:url';
 import { generateProject } from '../libs/generator/src/index';
 import type { Granularity } from '../libs/generator/src/index';
 import {
+  addAsset,
   addNodeAction,
   addStateVariable,
+  createAsset,
   createInstanceNode,
   createStateVariable,
   findComponent,
@@ -168,6 +170,16 @@ function findNodeById(document: typeof doc, type: string) {
   return found;
 }
 
+// An uploaded image, exported as a real binary under public/assets.
+doc = addAsset(
+  doc,
+  createAsset({
+    name: 'logo.png',
+    dataUrl:
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  }),
+);
+
 const result = generateProject(doc, {
   projectName: 'acme-store',
   granularity,
@@ -178,12 +190,12 @@ rmSync(outDir, { recursive: true, force: true });
 for (const file of result.files) {
   const target = join(outDir, file.path);
   mkdirSync(dirname(target), { recursive: true });
-  writeFileSync(target, file.contents, 'utf8');
+  writeFileSync(target, file.encoding === 'base64' ? Buffer.from(file.contents, 'base64') : file.contents, 'utf8');
 }
 
 console.log(`Exported ${result.stats.files} files to ${outDir}`);
 console.log(
-  `  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}, state: ${result.stats.stateVariables}, actions: ${result.stats.actions}`,
+  `  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}, state: ${result.stats.stateVariables}, actions: ${result.stats.actions}, assets: ${result.stats.assets}`,
 );
 for (const warning of result.warnings) {
   console.warn(`  warning: ${warning}`);

@@ -234,6 +234,37 @@
           }
         </section>
 
+        @if (takesImage()) {
+          <section class="block">
+            <h3>Image asset</h3>
+            <label class="btn block">
+              <ui-icon name="upload" [size]="14" />
+              Upload image
+              <input type="file" accept="image/*" hidden (change)="onUploadImage($any($event.target).files)" />
+            </label>
+            <p class="hint">
+              Uploaded files are exported to <span class="mono">public/assets/</span>, so this widget keeps a plain URL
+              instead of an inline data URI.
+            </p>
+            @if (state.assets().length > 0) {
+              <div class="assets">
+                @for (asset of state.assets(); track asset.id) {
+                  <button
+                    type="button"
+                    class="asset"
+                    [class.active]="node()?.props['src'] === 'assets/' + asset.name"
+                    (click)="state.useAsset(asset.name)"
+                    [title]="asset.name"
+                  >
+                    <img [src]="'data:' + asset.mimeType + ';base64,' + asset.base64" [alt]="asset.name" />
+                    <span>{{ asset.name }}</span>
+                  </button>
+                }
+              </div>
+            }
+          </section>
+        }
+
         <section class="block">
           <div class="block-head">
             <h3>Actions</h3>

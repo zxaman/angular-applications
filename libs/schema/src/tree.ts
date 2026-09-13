@@ -2,6 +2,7 @@ import { cloneNode, cloneNodeWithNewIds } from './factory';
 import type {
   AppDocument,
   AppNode,
+  AssetFile,
   Breakpoint,
   BreakpointStyles,
   CssMap,
@@ -251,6 +252,20 @@ export function removeNodeAction(doc: AppDocument, id: string, actionId: string)
     const actions = (node.actions ?? []).filter((action) => action.id !== actionId);
     return { ...node, actions: actions.length > 0 ? actions : undefined };
   });
+}
+
+// -------------------------------------------------------------------- assets
+
+export function addAsset(doc: AppDocument, asset: AssetFile): AppDocument {
+  return { ...doc, assets: [...doc.assets.filter((entry) => entry.name !== asset.name), asset] };
+}
+
+export function removeAsset(doc: AppDocument, id: string): AppDocument {
+  return { ...doc, assets: doc.assets.filter((entry) => entry.id !== id) };
+}
+
+export function findAssetByName(doc: AppDocument, name: string): AssetFile | undefined {
+  return doc.assets.find((entry) => entry.name === name);
 }
 
 // --------------------------------------------------------------------- state

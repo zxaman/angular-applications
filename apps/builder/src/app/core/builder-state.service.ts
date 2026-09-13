@@ -1,8 +1,10 @@
 import { computed, Injectable, signal } from '@angular/core';
 import {
   addComponentInput,
+  addAsset,
   addNodeAction,
   addStateVariable,
+  createAsset,
   cloneDocument,
   cloneNodeWithNewIds,
   countNodes,
@@ -22,6 +24,7 @@ import {
   findComponent,
   inferInputs,
   insertInstance,
+  removeAsset,
   removeComponentInput,
   removeNodeAction,
   removeStateVariable,
@@ -38,6 +41,7 @@ import {
   slugifyRoute,
   updateNode,
   updateNodeProps,
+  validateDocument,
   widgetTypesUsed,
   type AppDocument,
   type AppNode,
@@ -55,9 +59,10 @@ import {
   type StyleFile,
   type ThemeTokens,
 } from '@appstudio/schema';
-import { createNodeFromWidget, derivedStyle, getWidget, getWidgetOrFallback } from '@appstudio/widgets';
+import { createNodeFromWidget, derivedStyle, getWidget, getWidgetOrFallback, WIDGET_TYPES } from '@appstudio/widgets';
+import { readImageAsDataUrl } from './dnd';
 
-export type LeftPanel = 'widgets' | 'layers' | 'pages' | 'data' | 'theme';
+export type LeftPanel = 'widgets' | 'layers' | 'pages' | 'data' | 'validation' | 'settings' | 'theme';
 export type RightPanel = 'design' | 'styles' | 'code';
 
 const HISTORY_LIMIT = 60;
@@ -138,6 +143,11 @@ export class BuilderStateService {
   });
 
   readonly widgetTypes = computed(() => widgetTypesUsed(this.document()));
+
+  /** Everything `validateDocument` reports, for the validation panel. */
+  readonly issues = computed(() => validateDocument(this.document(), WIDGET_TYPES));
+
+  readonly issueCount = computed(() => this.issues().filter((issue) => issue.severity === 'error').length);
 
   constructor() {
     const doc = this.document();
@@ -474,6 +484,85 @@ export class BuilderStateService {
       return;
     }
     this.commit((doc) => setNodeRepeat(doc, id, repeat));
+  }
+
+  // --------------------------------------------------------------- assets
+
+  readonly assets = computed(() => this.document().assets);
+
+  /**
+   * Stores an uploaded image in the document and points the selected widget at
+   * it. Assets are exported to `public/assets`, so generated code references a
+   * plain URL instead of a giant data URI.
+   */
+  async uploadImage(file: File): Promise<void> {
+    const dataUrl = await readImageAsDataUrl(file);
+    const asset = createAsset({ name: file.name, mimeType: file.type, dataUrl });
+    if (!asset.base64) {
+      this.notify('That file could not be read as an image.', 'error');
+      return;
+    }
+    this.commit((doc) => addAsset(doc, asset));
+
+    const node = this.selectedNode();
+    const widget = node ? getWidgetOrFallback(node.type) : null;
+    const hasSrc = widget?.propSchema.some((prop) => prop.key === 'src') ?? false;
+    if (node && hasSrc) {
+      this.updateProp('src', `assets/${asset.name}`);
+      this.notify(`Uploaded "${asset.name}" and linked it to this widget`);
+    } else {
+      this.notify(`Uploaded "${asset.name}" to the project assets`);
+    }
+  }
+
+  /** Points the selected widget at an existing asset. */
+  useAsset(name: string): void {
+    this.updateProp('src', `assets/${name}`);
+  }
+
+  removeAsset(id: string): void {
+    this.commit((doc) => removeAsset(doc, id));
+  }
+
+  // -------------------------------------------------------------- clipboard
+
+  private clipboard: AppNode | null = null;
+
+  /** Copies the selected subtree to the studio clipboard. */
+  copySelected(): void {
+    const node = this.selectedNode();
+    if (!node) {
+      this.notify('Select a widget first.', 'error');
+      return;
+    }
+    this.clipboard = cloneNodeWithNewIds(node);
+    this.notify(`Copied "${node.name?.trim() || getWidgetOrFallback(node.type).label}"`);
+  }
+
+  cutSelected(): void {
+    if (!this.selectedNode()) {
+      return;
+    }
+    this.copySelected();
+    this.deleteSelected();
+  }
+
+  /** Pastes into the selected container, or at the end of the current root. */
+  paste(): void {
+    if (!this.clipboard) {
+      this.notify('Nothing to paste.', 'error');
+      return;
+    }
+    const selection = this.selection();
+    const target =
+      selection && getWidgetOrFallback(selection.node.type).isContainer ? selection.node.id : (this.activeRoot()?.id ?? null);
+    if (!target) {
+      this.notify('Add a page first.', 'error');
+      return;
+    }
+    const copy = cloneNodeWithNewIds(this.clipboard);
+    this.commit((doc) => insertNode(doc, target, copy, -1));
+    this.selectedId.set(copy.id);
   }
 
   // ------------------------------------------------------------- components

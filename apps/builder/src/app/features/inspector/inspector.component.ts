@@ -216,6 +216,20 @@ export class InspectorComponent {
     this.state.setStyle(property, value, this.editingBreakpoint());
   }
 
+  /** True when the selected widget takes an image source. */
+  protected readonly takesImage = computed(() => {
+    const widget = this.widget();
+    return widget?.propSchema.some((prop) => prop.key === 'src') ?? false;
+  });
+
+  protected async onUploadImage(files: FileList | null): Promise<void> {
+    const file = files?.[0];
+    if (!file) {
+      return;
+    }
+    await this.state.uploadImage(file);
+  }
+
   /** Saves the selected widget to the component library. */
   protected saveAsComponent(name: string): void {
     this.state.saveSelectedAsComponent(name);

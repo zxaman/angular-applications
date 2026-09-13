@@ -67,7 +67,8 @@ export class ExportService {
         throw new Error('Could not create the archive root folder');
       }
       for (const file of files) {
-        root.file(file.path, file.contents);
+        // Uploaded images travel as base64 so the archive holds real binaries.
+        root.file(file.path, file.contents, file.encoding === 'base64' ? { base64: true } : undefined);
       }
       const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
       downloadBlob(blob, `${projectName}.zip`);

@@ -224,6 +224,36 @@ describe('BuilderStateService', () => {
     expect(state.document().pages[0]!.root.children.some((child) => child.instance)).toBe(false);
   });
 
+  it('copies, cuts and pastes a subtree', () => {
+    const page = state.activePage()!;
+    const columnId = state.addWidget('column', page.root.id, -1)!;
+    state.addWidget('heading', columnId, -1);
+    const before = state.nodeCount();
+
+    state.select(columnId);
+    state.copySelected();
+    state.paste();
+    expect(state.nodeCount()).toBe(before + 2);
+
+    // The paste gets fresh ids, so nothing collides.
+    expect(state.selectedId()).not.toBe(columnId);
+    expect(state.selectedNode()?.type).toBe('column');
+
+    state.cutSelected();
+    expect(state.nodeCount()).toBe(before);
+  });
+
+  it('validates the document for the checks panel', () => {
+    state.addStateVariable('rows', 'list');
+    const page = state.activePage()!;
+    const id = state.addWidget('text', page.root.id, -1)!;
+    state.select(id);
+    state.setNodeRepeat({ collection: 'ghost', itemName: 'item', indexName: 'index' });
+
+    expect(state.issueCount()).toBeGreaterThan(0);
+    expect(state.issues().some((issue) => issue.nodeId === id)).toBe(true);
+  });
+
   it('supports undo across state edits', () => {
     state.addStateVariable('counter', 'number');
     expect(state.stateVariables().length).toBe(1);

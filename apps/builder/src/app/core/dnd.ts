@@ -39,6 +39,16 @@ export function payloadFromEvent(event: DragEvent): DragPayload | null {
   return decodePayload(data.getData(DND_MIME)) ?? decodePayload(data.getData('text/plain'));
 }
 
+/** Reads an image file as a `data:` URL so it can be stored in the document. */
+export function readImageAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(reader.error ?? new Error('Could not read image'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function readTextFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

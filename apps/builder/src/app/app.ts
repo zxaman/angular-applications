@@ -8,6 +8,8 @@ import { ExportPanelComponent } from './features/export/export-panel.component';
 import { InspectorComponent } from './features/inspector/inspector.component';
 import { LayersPanelComponent } from './features/panels/layers-panel.component';
 import { PagesPanelComponent } from './features/panels/pages-panel.component';
+import { SettingsPanelComponent } from './features/panels/settings-panel.component';
+import { ValidationPanelComponent } from './features/panels/validation-panel.component';
 import { ThemePanelComponent } from './features/panels/theme-panel.component';
 import { WidgetsPanelComponent } from './features/panels/widgets-panel.component';
 import { StatusbarComponent } from './features/shell/statusbar.component';
@@ -32,7 +34,9 @@ import { TopbarComponent } from './features/shell/topbar.component';
     WidgetsPanelComponent,
     LayersPanelComponent,
     PagesPanelComponent,
+    SettingsPanelComponent,
     ThemePanelComponent,
+    ValidationPanelComponent,
     InspectorComponent,
     ExportPanelComponent,
   ],
@@ -44,6 +48,23 @@ export class App {
   private readonly persistence = inject(PersistenceService);
 
   protected readonly exportOpen = signal(false);
+  protected readonly shortcutsOpen = signal(false);
+
+  protected readonly shortcuts: { keys: string[]; label: string }[] = [
+    { keys: ['Ctrl', 'S'], label: 'Save to this browser' },
+    { keys: ['Ctrl', 'E'], label: 'Open the export drawer' },
+    { keys: ['Ctrl', 'Z'], label: 'Undo' },
+    { keys: ['Ctrl', 'Y'], label: 'Redo' },
+    { keys: ['Ctrl', 'D'], label: 'Duplicate the selection' },
+    { keys: ['Ctrl', 'C'], label: 'Copy the selection' },
+    { keys: ['Ctrl', 'X'], label: 'Cut the selection' },
+    { keys: ['Ctrl', 'V'], label: 'Paste into the selection' },
+    { keys: ['Del'], label: 'Delete the selection' },
+    { keys: ['Alt', '↑ / ↓'], label: 'Move the selection up or down' },
+    { keys: ['↑ ↓ ← →'], label: 'Walk the tree' },
+    { keys: ['Esc'], label: 'Deselect / close overlays' },
+    { keys: ['Ctrl', '/'], label: 'Show this list' },
+  ];
 
   constructor() {
     this.persistence.ensureStarted();
@@ -107,13 +128,35 @@ export class App {
     if (typing) {
       return;
     }
+    if (meta && event.key === '/') {
+      event.preventDefault();
+      this.shortcutsOpen.update((open) => !open);
+      return;
+    }
     if (meta && event.key.toLowerCase() === 'd') {
       event.preventDefault();
       this.state.duplicateSelected();
       return;
     }
+    if (meta && event.key.toLowerCase() === 'c') {
+      event.preventDefault();
+      this.state.copySelected();
+      return;
+    }
+    if (meta && event.key.toLowerCase() === 'x') {
+      event.preventDefault();
+      this.state.cutSelected();
+      return;
+    }
+    if (meta && event.key.toLowerCase() === 'v') {
+      event.preventDefault();
+      this.state.paste();
+      return;
+    }
     if (event.key === 'Escape') {
-      if (this.exportOpen()) {
+      if (this.shortcutsOpen()) {
+        this.shortcutsOpen.set(false);
+      } else if (this.exportOpen()) {
         this.closeExport();
       } else if (this.state.preview()) {
         this.state.setPreview(false);

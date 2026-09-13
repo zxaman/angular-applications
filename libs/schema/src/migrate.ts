@@ -15,6 +15,8 @@ const migrations: Record<number, Migration> = {
   1: (doc) => ({ ...doc, state: Array.isArray(doc['state']) ? doc['state'] : [] }),
   // 2 -> 3: reusable component library.
   2: (doc) => ({ ...doc, components: Array.isArray(doc['components']) ? doc['components'] : [] }),
+  // 3 -> 4: uploaded image assets.
+  3: (doc) => ({ ...doc, assets: Array.isArray(doc['assets']) ? doc['assets'] : [] }),
 };
 
 export interface MigrateResult {

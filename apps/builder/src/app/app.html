@@ -28,6 +28,22 @@
       <ui-icon name="database" [size]="17" />
       <span>Data</span>
     </button>
+    <button
+      type="button"
+      [class.active]="state.leftPanel() === 'validation'"
+      (click)="state.setLeftPanel('validation')"
+      title="Checks"
+    >
+      <ui-icon name="check" [size]="17" />
+      <span>Checks</span>
+      @if (state.issueCount() > 0) {
+        <em class="dot">{{ state.issueCount() }}</em>
+      }
+    </button>
+    <button type="button" [class.active]="state.leftPanel() === 'settings'" (click)="state.setLeftPanel('settings')" title="Settings">
+      <ui-icon name="settings" [size]="17" />
+      <span>Settings</span>
+    </button>
     <button type="button" [class.active]="state.leftPanel() === 'theme'" (click)="state.setLeftPanel('theme')" title="Theme">
       <ui-icon name="brush" [size]="17" />
       <span>Theme</span>
@@ -53,6 +69,12 @@
       @case ('data') {
         <studio-data-panel />
       }
+      @case ('validation') {
+        <studio-validation-panel />
+      }
+      @case ('settings') {
+        <studio-settings-panel />
+      }
       @case ('theme') {
         <studio-theme-panel />
       }
@@ -72,4 +94,27 @@
 
 @if (exportOpen()) {
   <studio-export-panel (close)="closeExport()" />
+}
+
+@if (shortcutsOpen()) {
+  <div class="overlay" (click)="shortcutsOpen.set(false)">
+    <div class="sheet" (click)="$event.stopPropagation()" role="dialog" aria-label="Keyboard shortcuts">
+      <div class="sheet-head">
+        <h2>Keyboard shortcuts</h2>
+        <button type="button" class="btn sm ghost" (click)="shortcutsOpen.set(false)"><ui-icon name="close" [size]="13" /></button>
+      </div>
+      <ul class="shortcut-list">
+        @for (shortcut of shortcuts; track shortcut.label) {
+          <li>
+            <span class="keys">
+              @for (key of shortcut.keys; track key) {
+                <kbd>{{ key }}</kbd>
+              }
+            </span>
+            <span>{{ shortcut.label }}</span>
+          </li>
+        }
+      </ul>
+    </div>
+  </div>
 }

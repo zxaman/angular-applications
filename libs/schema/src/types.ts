@@ -54,6 +54,17 @@ export interface AppNode {
   children: AppNode[];
 }
 
+/** An image uploaded through the studio. */
+export interface AssetFile {
+  id: string;
+  /** File name including extension, e.g. `hero.png`. */
+  name: string;
+  mimeType: string;
+  /** Raw base64 payload, without the `data:` prefix. */
+  base64: string;
+  addedAt: string;
+}
+
 export type ComponentInputType = 'string' | 'number' | 'boolean';
 
 /** One configurable value on a library component. */
@@ -220,6 +231,8 @@ export interface AppDocument {
   state: StateVariable[];
   /** Reusable components built in the studio. */
   components: ComponentDef[];
+  /** Images uploaded in the studio, exported to `public/assets`. */
+  assets: AssetFile[];
   pages: PageDef[];
   settings: AppSettings;
 }

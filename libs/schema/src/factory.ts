@@ -4,6 +4,7 @@ import type {
   AppNode,
   ComponentDef,
   ComponentInputDef,
+  AssetFile,
   CssMap,
   NodeInstance,
   NodeProps,
@@ -13,7 +14,7 @@ import type {
   ThemeTokens,
 } from './types';
 
-export const DOCUMENT_VERSION = 3;
+export const DOCUMENT_VERSION = 4;
 export const DOCUMENT_KIND = 'appstudio.document' as const;
 
 export const DEFAULT_THEME: ThemeTokens = {
@@ -93,6 +94,7 @@ export function createDocument(name = 'My Application'): AppDocument {
     globalStyles: [],
     state: [],
     components: [],
+    assets: [],
     pages: [home],
     settings: {
       prefix: 'app',
@@ -130,6 +132,28 @@ export function createStateVariable(options: {
     initial: options.initial ?? defaults[type],
     description: options.description,
   };
+}
+
+/** Creates an asset entry from a `data:` URL or raw base64 payload. */
+export function createAsset(options: { name: string; mimeType?: string; dataUrl?: string; base64?: string }): AssetFile {
+  const raw = options.dataUrl ?? '';
+  const match = /^data:([^;,]+);base64,(.*)$/s.exec(raw);
+  return {
+    id: createId('as'),
+    name: sanitiseFileName(options.name),
+    mimeType: options.mimeType ?? match?.[1] ?? 'image/png',
+    base64: (options.base64 ?? match?.[2] ?? '').replace(/\s+/g, ''),
+    addedAt: new Date().toISOString(),
+  };
+}
+
+/** Keeps asset names safe as file paths. */
+export function sanitiseFileName(name: string): string {
+  const cleaned = name.trim().replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/^[-.]+/, '');
+  const dot = cleaned.lastIndexOf('.');
+  const extension = dot > 0 ? cleaned.slice(dot).toLowerCase() : '';
+  const base = (dot > 0 ? cleaned.slice(0, dot) : cleaned).toLowerCase().replace(/-+$/, '') || 'image';
+  return `${base}${['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif'].includes(extension) ? extension : '.png'}`;
 }
 
 /** Creates a reusable component definition from an existing subtree. */

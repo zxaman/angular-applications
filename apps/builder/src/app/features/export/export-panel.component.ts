@@ -91,4 +91,15 @@ export class ExportPanelComponent {
   protected lines(file: GeneratedFile): number {
     return file.contents.split('\n').length;
   }
+
+  /** Preview URL for a binary asset. */
+  protected dataUrl(file: GeneratedFile): string {
+    const type = file.path.endsWith('.svg') ? 'image/svg+xml' : 'image/png';
+    return `data:${type};base64,${file.contents}`;
+  }
+
+  protected bytes(file: GeneratedFile): string {
+    const size = Math.round((file.contents.length * 3) / 4);
+    return size < 1024 ? `${size} B` : `${(size / 1024).toFixed(1)} kB`;
+  }
 }
