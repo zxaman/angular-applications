@@ -68,6 +68,65 @@
           </div>
         </section>
 
+        <section class="block">
+          <h3>Data &amp; bindings</h3>
+          <div class="field">
+            <label for="node-repeat">Repeat over</label>
+            <select
+              id="node-repeat"
+              class="input"
+              [ngModel]="node()?.repeat?.collection ?? ''"
+              (ngModelChange)="setRepeatCollection($event)"
+            >
+              <option value="">— Not repeated —</option>
+              @for (variable of listVariables(); track variable.id) {
+                <option [value]="variable.name">{{ variable.name }}</option>
+              }
+            </select>
+            <p class="hint">
+              Exports as an <span class="mono">&#64;for</span> loop. The canvas renders
+              {{ repeatCount() }} {{ repeatCount() === 1 ? 'copy' : 'copies' }} of this widget from the list's current
+              value.
+            </p>
+          </div>
+          @if (node()?.repeat; as repeat) {
+            <div class="field">
+              <label for="node-repeat-item">Item name</label>
+              <input
+                id="node-repeat-item"
+                class="input"
+                [ngModel]="repeat.itemName"
+                (ngModelChange)="setRepeatItemName($event)"
+              />
+            </div>
+            <div class="field">
+              <label for="node-repeat-index">Index name</label>
+              <input
+                id="node-repeat-index"
+                class="input"
+                [ngModel]="repeat.indexName"
+                (ngModelChange)="setRepeatIndexName($event)"
+              />
+            </div>
+          }
+
+          @if (bindings().length > 0) {
+            <div class="bindings">
+              @for (binding of bindings(); track binding.path) {
+                <span class="chip" [class.missing]="binding.missing">
+                  <ui-icon [name]="binding.missing ? 'warning' : 'check'" [size]="11" />
+                  <span class="mono">{{ binding.path }}</span>
+                </span>
+              }
+            </div>
+          } @else {
+            <p class="hint">
+              Type <span class="mono" ngNonBindable>{{ state.name }}</span> in any text field to bind it to a variable
+              from the Data panel.
+            </p>
+          }
+        </section>
+
         @for (group of propGroups(); track group.title) {
           <section class="block">
             <h3>{{ group.title }}</h3>

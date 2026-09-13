@@ -41,6 +41,43 @@ export function validateDocument(doc: AppDocument, knownWidgetTypes?: readonly s
     return issues;
   }
 
+  const stateNames = new Set<string>();
+  for (const variable of doc.state ?? []) {
+    if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(variable.name)) {
+      issues.push({
+        severity: 'error',
+        path: `state[${variable.id}].name`,
+        message: `State name "${variable.name}" is not a valid identifier.`,
+      });
+    }
+    if (stateNames.has(variable.name)) {
+      issues.push({
+        severity: 'error',
+        path: `state[${variable.id}].name`,
+        message: `Duplicate state name "${variable.name}".`,
+      });
+    }
+    stateNames.add(variable.name);
+    if (variable.type === 'list') {
+      try {
+        const parsed: unknown = JSON.parse(variable.initial || '[]');
+        if (!Array.isArray(parsed)) {
+          issues.push({
+            severity: 'error',
+            path: `state[${variable.id}].initial`,
+            message: `List state "${variable.name}" must be initialised with a JSON array.`,
+          });
+        }
+      } catch {
+        issues.push({
+          severity: 'error',
+          path: `state[${variable.id}].initial`,
+          message: `List state "${variable.name}" contains invalid JSON.`,
+        });
+      }
+    }
+  }
+
   const routes = new Map<string, string>();
   const ids = new Set<string>();
 
@@ -74,6 +111,14 @@ export function validateDocument(doc: AppDocument, knownWidgetTypes?: readonly s
         issues.push({ severity: 'error', path: nodePath, message: `Duplicate node id "${node.id}".`, nodeId: node.id });
       }
       ids.add(node.id);
+      if (node.repeat?.collection && !stateNames.has(node.repeat.collection)) {
+        issues.push({
+          severity: 'error',
+          path: nodePath,
+          message: `Repeater uses unknown list state "${node.repeat.collection}".`,
+          nodeId: node.id,
+        });
+      }
       if (knownWidgetTypes && !knownWidgetTypes.includes(node.type)) {
         issues.push({
           severity: 'warning',

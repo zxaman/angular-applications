@@ -45,7 +45,35 @@ export interface AppNode {
   css?: string;
   /** File name the CSS was imported from (kept for provenance in the UI). */
   cssFileName?: string;
+  /** When set, this node is rendered once per item of the collection. */
+  repeat?: RepeatConfig;
   children: AppNode[];
+}
+
+export type StateType = 'string' | 'number' | 'boolean' | 'list' | 'object';
+
+/**
+ * An app level state variable. Exported as a signal on the components that read
+ * it, so `{{state.count}}` in the studio becomes `{{ count() }}` in the app.
+ */
+export interface StateVariable {
+  id: string;
+  /** camelCase identifier used in generated code. */
+  name: string;
+  type: StateType;
+  /** Literal initial value; for `list` this is JSON array text. */
+  initial: string;
+  description?: string;
+}
+
+/** Repeater configuration: renders the node once per item of a collection. */
+export interface RepeatConfig {
+  /** Name of a `list` state variable. */
+  collection: string;
+  /** Identifier each item is bound to, used as `{{item.field}}`. */
+  itemName: string;
+  /** Identifier for the position, used as `{{index}}`. */
+  indexName: string;
 }
 
 export interface PageDef {
@@ -118,6 +146,8 @@ export interface AppDocument {
   theme: ThemeTokens;
   /** Global stylesheets imported by the user. */
   globalStyles: StyleFile[];
+  /** App level state variables. */
+  state: StateVariable[];
   pages: PageDef[];
   settings: AppSettings;
 }

@@ -46,6 +46,7 @@ export const UI_ICONS: Record<string, string> = {
   lock: 'M7 11V8a5 5 0 0 1 10 0v3M5.5 11h13v9h-13z',
   refresh: 'M20 12a8 8 0 1 1-2.3-5.6M20 4v4h-4',
   sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9z',
+  database: 'M12 3c4.4 0 8 1.3 8 3s-3.6 3-8 3-8-1.3-8-3 3.6-3 8-3zM4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3',
 };
 
 export const UI_ICON_NAMES = Object.keys(UI_ICONS);

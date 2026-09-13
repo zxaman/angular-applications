@@ -1,6 +1,14 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { BREAKPOINTS, type Breakpoint, type CssMap } from '@appstudio/schema';
+import {
+  BREAKPOINTS,
+  bindingPaths,
+  nodeBindingTexts,
+  sanitiseIdentifier,
+  type Breakpoint,
+  type CssMap,
+  type RepeatConfig,
+} from '@appstudio/schema';
 import type { PropSchema } from '@appstudio/widgets';
 import { UiIconComponent } from '@appstudio/ui';
 import { BuilderStateService } from '../../core/builder-state.service';
@@ -101,6 +109,46 @@ export class InspectorComponent {
   protected readonly node = this.state.selectedNode;
   protected readonly widget = this.state.selectedWidget;
 
+  /** List variables available to a repeater. */
+  protected readonly listVariables = computed(() => this.state.stateVariables().filter((entry) => entry.type === 'list'));
+
+  /** Every `{{ … }}` binding written on the selected node, with a resolution check. */
+  protected readonly bindings = computed(() => {
+    const node = this.node();
+    if (!node) {
+      return [];
+    }
+    const known = new Set(this.state.stateVariables().map((entry) => entry.name));
+    const rows: { path: string; missing: boolean }[] = [];
+    for (const text of nodeBindingTexts(node)) {
+      for (const path of bindingPaths(text)) {
+        if (rows.some((row) => row.path === path)) {
+          continue;
+        }
+        rows.push({ path, missing: path.startsWith('state.') && !known.has(path.slice('state.'.length).split('.')[0]) });
+      }
+    }
+    return rows;
+  });
+
+  protected readonly repeatCount = computed(() => {
+    const node = this.node();
+    const collection = node?.repeat?.collection;
+    if (!collection) {
+      return 0;
+    }
+    const variable = this.state.stateVariables().find((entry) => entry.name === collection);
+    if (!variable) {
+      return 0;
+    }
+    try {
+      const parsed: unknown = JSON.parse(variable.initial || '[]');
+      return Array.isArray(parsed) ? parsed.length : 0;
+    } catch {
+      return 0;
+    }
+  });
+
   protected readonly propGroups = computed(() => {
     const widget = this.widget();
     if (!widget) {
@@ -162,8 +210,42 @@ export class InspectorComponent {
     this.state.setStyle(property, value, this.editingBreakpoint());
   }
 
-  protected clearBreakpoint(): void {
+  // ---------------------------------------------------------------- repeat
+
+  protected setRepeatCollection(collection: string): void {
     const node = this.node();
+    if (!node) {
+      return;
+    }
+    if (!collection) {
+      this.state.setNodeRepeat(undefined);
+      return;
+    }
+    const repeat: RepeatConfig = {
+      collection,
+      itemName: node.repeat?.itemName || 'item',
+      indexName: node.repeat?.indexName || 'index',
+    };
+    this.state.setNodeRepeat(repeat);
+  }
+
+  protected setRepeatItemName(itemName: string): void {
+    const node = this.node();
+    if (!node?.repeat) {
+      return;
+    }
+    this.state.setNodeRepeat({ ...node.repeat, itemName: sanitiseIdentifier(itemName) || 'item' });
+  }
+
+  protected setRepeatIndexName(indexName: string): void {
+    const node = this.node();
+    if (!node?.repeat) {
+      return;
+    }
+    this.state.setNodeRepeat({ ...node.repeat, indexName: sanitiseIdentifier(indexName) || 'index' });
+  }
+
+  protected clearBreakpoint(): void {    const node = this.node();
     const breakpoint = this.editingBreakpoint();
     if (!node || breakpoint === 'base') {
       return;

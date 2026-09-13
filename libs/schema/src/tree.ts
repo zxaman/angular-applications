@@ -1,5 +1,16 @@
 import { cloneNode, cloneNodeWithNewIds } from './factory';
-import type { AppDocument, AppNode, Breakpoint, BreakpointStyles, CssMap, NodeLocation, NodeProps, PageDef } from './types';
+import type {
+  AppDocument,
+  AppNode,
+  Breakpoint,
+  BreakpointStyles,
+  CssMap,
+  NodeLocation,
+  NodeProps,
+  PageDef,
+  RepeatConfig,
+  StateVariable,
+} from './types';
 
 /**
  * Immutable-ish tree helpers. Every function returns a brand new document so the
@@ -181,6 +192,25 @@ export function setNodeComponentName(doc: AppDocument, id: string, componentName
     ...node,
     componentName: componentName && componentName.trim().length > 0 ? componentName.trim() : undefined,
   }));
+}
+
+/** Attaches or clears a repeater on a node. */
+export function setNodeRepeat(doc: AppDocument, id: string, repeat: RepeatConfig | undefined): AppDocument {
+  return updateNode(doc, id, (node) => ({ ...node, repeat }));
+}
+
+// --------------------------------------------------------------------- state
+
+export function addStateVariable(doc: AppDocument, variable: StateVariable): AppDocument {
+  return { ...doc, state: [...doc.state.filter((entry) => entry.name !== variable.name), variable] };
+}
+
+export function updateStateVariable(doc: AppDocument, id: string, patch: Partial<StateVariable>): AppDocument {
+  return { ...doc, state: doc.state.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)) };
+}
+
+export function removeStateVariable(doc: AppDocument, id: string): AppDocument {
+  return { ...doc, state: doc.state.filter((entry) => entry.id !== id) };
 }
 
 export function renameNode(doc: AppDocument, id: string, name: string): AppDocument {

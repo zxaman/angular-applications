@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import {
+  addStateVariable,
   cloneDocument,
   cloneNodeWithNewIds,
   countNodes,
@@ -11,8 +12,12 @@ import {
   insertNode,
   moveNode,
   removeNode,
+  createStateVariable,
+  removeStateVariable,
   setNodeComponentName,
   setNodeCss,
+  setNodeRepeat,
+  updateStateVariable,
   setNodeStyle,
   slugifyRoute,
   updateNode,
@@ -25,12 +30,15 @@ import {
   type CssMap,
   type NodeLocation,
   type PageDef,
+  type RepeatConfig,
+  type StateType,
+  type StateVariable,
   type StyleFile,
   type ThemeTokens,
 } from '@appstudio/schema';
 import { createNodeFromWidget, derivedStyle, getWidget, getWidgetOrFallback } from '@appstudio/widgets';
 
-export type LeftPanel = 'widgets' | 'layers' | 'pages' | 'theme';
+export type LeftPanel = 'widgets' | 'layers' | 'pages' | 'data' | 'theme';
 export type RightPanel = 'design' | 'styles' | 'code';
 
 const HISTORY_LIMIT = 60;
@@ -361,6 +369,40 @@ export class BuilderStateService {
     if (next) {
       this.selectedId.set(next.id);
     }
+  }
+
+  // ------------------------------------------------------------------ state
+
+  readonly stateVariables = computed(() => this.document().state);
+
+  addStateVariable(name: string, type: StateType = 'string'): void {
+    if (!name.trim()) {
+      this.notify('Give the variable a name first.', 'error');
+      return;
+    }
+    const variable = createStateVariable({ name, type });
+    if (this.document().state.some((entry) => entry.name === variable.name)) {
+      this.notify(`"${variable.name}" already exists.`, 'error');
+      return;
+    }
+    this.commit((doc) => addStateVariable(doc, variable));
+    this.notify(`Added state "${variable.name}"`);
+  }
+
+  updateStateVariable(id: string, patch: Partial<StateVariable>): void {
+    this.commit((doc) => updateStateVariable(doc, id, patch));
+  }
+
+  removeStateVariable(id: string): void {
+    this.commit((doc) => removeStateVariable(doc, id));
+  }
+
+  setNodeRepeat(repeat: RepeatConfig | undefined): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => setNodeRepeat(doc, id, repeat));
   }
 
   // ------------------------------------------------------------------ pages

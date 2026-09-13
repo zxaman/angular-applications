@@ -25,10 +25,16 @@ export function emitComponentClass(plan: ComponentPlan, template: TemplateResult
   if (plan.inputs.length > 0) {
     coreImports.push('input');
   }
+  if (template.needsStore) {
+    coreImports.push('inject');
+  }
 
   const importLines: string[] = [`import { ${coreImports.join(', ')} } from '@angular/core';`];
   const componentImports: string[] = [];
 
+  if (template.needsStore) {
+    importLines.push(`import { AppStore } from '${relativeImportPath(plan.folder, 'core', 'app-store')}';`);
+  }
   if (template.needsForms) {
     importLines.push("import { FormsModule, type NgForm } from '@angular/forms';");
     componentImports.push('FormsModule');
@@ -56,6 +62,10 @@ export function emitComponentClass(plan: ComponentPlan, template: TemplateResult
     .join('\n');
 
   const members: string[] = [];
+
+  if (template.needsStore) {
+    members.push('  protected readonly store = inject(AppStore);');
+  }
 
   if (plan.inputs.length > 0) {
     members.push(plan.inputs.map((item) => inputDeclaration(item.name, item.type, item.value, item.label)).join('\n\n'));

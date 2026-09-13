@@ -37,6 +37,7 @@ export interface GenerateStats {
   components: number;
   widgets: number;
   importedStylesheets: number;
+  stateVariables: number;
 }
 
 export interface GenerateResult {

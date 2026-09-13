@@ -24,6 +24,10 @@
       <ui-icon name="pages" [size]="17" />
       <span>Pages</span>
     </button>
+    <button type="button" [class.active]="state.leftPanel() === 'data'" (click)="state.setLeftPanel('data')" title="Data / state">
+      <ui-icon name="database" [size]="17" />
+      <span>Data</span>
+    </button>
     <button type="button" [class.active]="state.leftPanel() === 'theme'" (click)="state.setLeftPanel('theme')" title="Theme">
       <ui-icon name="brush" [size]="17" />
       <span>Theme</span>
@@ -45,6 +49,9 @@
       }
       @case ('pages') {
         <studio-pages-panel />
+      }
+      @case ('data') {
+        <studio-data-panel />
       }
       @case ('theme') {
         <studio-theme-panel />

@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { BREAKPOINTS, getBreakpoint, type Breakpoint } from '@appstudio/schema';
 import { baseCss, getWidgetOrFallback, themeCss } from '@appstudio/widgets';
 import { UiIconComponent } from '@appstudio/ui';
+import { stateMap, type BindingContext } from '@appstudio/schema';
 import { BuilderStateService } from '../../core/builder-state.service';
 import type { DragPayload } from '../../core/dnd';
 import { NodeViewComponent, type DropEvent } from './node-view.component';
@@ -44,6 +45,9 @@ export class CanvasComponent implements OnDestroy {
   protected readonly preview = this.state.preview;
 
   protected readonly frameWidth = computed(() => getBreakpoint(this.breakpoint()).canvasWidth);
+
+  /** Live values for `{{ state.* }}` bindings and repeaters on the canvas. */
+  protected readonly bindingContext = computed<BindingContext>(() => ({ state: stateMap(this.state.document()), locals: {} }));
 
   /** Breadcrumb of the selected node, outermost first. */
   protected readonly path = computed(() => {

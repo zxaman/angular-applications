@@ -59,6 +59,7 @@
           [breakpoint]="breakpoint()"
           [selectedId]="state.selectedId()"
           [preview]="preview()"
+          [bindings]="bindingContext()"
           (select)="onSelect($event)"
           (dropNode)="onDrop($event)"
           (dragStart)="onDragStart()"

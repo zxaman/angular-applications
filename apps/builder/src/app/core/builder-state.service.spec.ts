@@ -125,4 +125,49 @@ describe('BuilderStateService', () => {
     state.setComponentName('Pricing Card');
     expect(findNode(state.document(), id)!.node.componentName).toBe('Pricing Card');
   });
+
+  it('adds, edits and removes state variables', () => {
+    state.addStateVariable('Headline', 'string');
+    expect(state.stateVariables().length).toBe(1);
+    expect(state.stateVariables()[0]!.name).toBe('headline');
+
+    const id = state.stateVariables()[0]!.id;
+    state.updateStateVariable(id, { initial: 'Hi there' });
+    expect(state.stateVariables()[0]!.initial).toBe('Hi there');
+
+    state.removeStateVariable(id);
+    expect(state.stateVariables().length).toBe(0);
+  });
+
+  it('rejects an empty or duplicate variable name', () => {
+    state.addStateVariable('   ');
+    expect(state.stateVariables().length).toBe(0);
+
+    state.addStateVariable('total');
+    state.addStateVariable('total');
+    expect(state.stateVariables().length).toBe(1);
+    expect(state.notice()?.tone).toBe('error');
+  });
+
+  it('attaches a repeater to the selected node', () => {
+    state.addStateVariable('items', 'list');
+    const page = state.activePage();
+    const id = state.addWidget('card', page!.root.id, -1)!;
+    state.select(id);
+
+    state.setNodeRepeat({ collection: 'items', itemName: 'item', indexName: 'index' });
+    expect(findNode(state.document(), id)!.node.repeat?.collection).toBe('items');
+
+    state.setNodeRepeat(undefined);
+    expect(findNode(state.document(), id)!.node.repeat).toBeUndefined();
+  });
+
+  it('supports undo across state edits', () => {
+    state.addStateVariable('counter', 'number');
+    expect(state.stateVariables().length).toBe(1);
+    state.undo();
+    expect(state.stateVariables().length).toBe(0);
+    state.redo();
+    expect(state.stateVariables().length).toBe(1);
+  });
 });

@@ -16,10 +16,21 @@ import {
   signal,
 } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
-import type { AppNode, Breakpoint, CssMap } from '@appstudio/schema';
+import {
+  EMPTY_CONTEXT,
+  evaluateBindings,
+  repeatContext,
+  type AppNode,
+  type BindingContext,
+  type Breakpoint,
+  type CssMap,
+} from '@appstudio/schema';
 import { getWidgetOrFallback, renderPlan, type RenderPlan } from '@appstudio/widgets';
 import { DND_MIME, encodePayload, payloadFromEvent, type DragPayload } from '../../core/dnd';
 import { resolveStyle, styleToString } from '../../core/responsive';
+
+/** Hard cap on repeated copies drawn on the canvas. */
+const MAX_REPEAT_PREVIEWS = 24;
 
 export interface DropEvent {
   parentId: string;
@@ -69,6 +80,8 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
   readonly selectedId = input<string | null>(null);
   readonly preview = input(false);
   readonly depth = input(0);
+  /** State values plus any repeater locals inherited from an ancestor `@for`. */
+  readonly bindings = input<BindingContext>(EMPTY_CONTEXT);
 
   readonly select = output<string>();
   readonly dropNode = output<DropEvent>();
@@ -98,7 +111,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.built) {
       return;
     }
-    if (changes['node'] || changes['breakpoint'] || changes['preview']) {
+    if (changes['node'] || changes['breakpoint'] || changes['preview'] || changes['bindings']) {
       this.build();
       return;
     }
@@ -129,39 +142,57 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.renderer.setProperty(this.host, 'innerHTML', '');
 
     const plan = renderPlan(this.node());
-    const element = this.createElement(plan, true);
-    this.rootElement = element;
-    this.renderer.appendChild(this.host, element);
-    this.buildChildren(plan, element);
+    const parentContext = this.bindings();
+    const repeat = this.node().repeat;
+    const collection = repeat?.collection ? parentContext.state[repeat.collection] : undefined;
+    // Cap the preview so a 1000-item list does not freeze the canvas.
+    const items: unknown[] = repeat && Array.isArray(collection) ? collection.slice(0, MAX_REPEAT_PREVIEWS) : [undefined];
 
-    if (this.node().children.length === 0 && this.widget.isContainer && !this.preview()) {
-      const placeholder = this.renderer.createElement('div');
-      this.renderer.addClass(placeholder, 'as-empty');
-      this.renderer.appendChild(placeholder, this.renderer.createText(String(this.node().props['label'] ?? this.widget.label)));
-      this.renderer.appendChild(element, placeholder);
-    }
+    items.forEach((item, index) => {
+      const context: BindingContext = repeat
+        ? { state: parentContext.state, locals: { ...parentContext.locals, ...repeatContext(repeat, item, index) } }
+        : parentContext;
+
+      const element = this.createElement(plan, true, context);
+      if (!this.rootElement) {
+        this.rootElement = element;
+      }
+      this.renderer.appendChild(this.host, element);
+      this.buildChildren(plan, element, context);
+
+      if (index === 0 && this.node().children.length === 0 && this.widget.isContainer && !this.preview()) {
+        const placeholder = this.renderer.createElement('div');
+        this.renderer.addClass(placeholder, 'as-empty');
+        this.renderer.appendChild(
+          placeholder,
+          this.renderer.createText(String(this.node().props['label'] ?? this.widget.label)),
+        );
+        this.renderer.appendChild(element, placeholder);
+      }
+    });
   }
 
-  private buildChildren(plan: RenderPlan, parentElement: HTMLElement): void {
+  private buildChildren(plan: RenderPlan, parentElement: HTMLElement, context: BindingContext): void {
     for (const child of plan.children ?? []) {
       if (child.node.id !== this.node().id) {
-        const ref = this.createChild(child.node);
+        const ref = this.createChild(child.node, context);
         this.renderer.appendChild(parentElement, ref.location.nativeElement);
         continue;
       }
-      const element = this.createElement(child, false);
+      const element = this.createElement(child, false, context);
       this.renderer.appendChild(parentElement, element);
-      this.buildChildren(child, element);
+      this.buildChildren(child, element, context);
     }
   }
 
-  private createChild(childNode: AppNode): ComponentRef<NodeViewComponent> {
+  private createChild(childNode: AppNode, context: BindingContext): ComponentRef<NodeViewComponent> {
     const ref = this.viewContainer.createComponent(NodeViewComponent);
     ref.setInput('node', childNode);
     ref.setInput('breakpoint', this.breakpoint());
     ref.setInput('selectedId', this.selectedId());
     ref.setInput('preview', this.preview());
     ref.setInput('depth', this.depth() + 1);
+    ref.setInput('bindings', context);
     ref.instance.select.subscribe((id) => this.select.emit(id));
     ref.instance.dropNode.subscribe((event) => this.dropNode.emit(event));
     ref.instance.dragStart.subscribe((id) => this.dragStart.emit(id));
@@ -171,13 +202,13 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     return ref;
   }
 
-  private createElement(plan: RenderPlan, isRoot: boolean): HTMLElement {
+  private createElement(plan: RenderPlan, isRoot: boolean, context: BindingContext): HTMLElement {
     const element = this.renderer.createElement(plan.tag) as HTMLElement;
     for (const className of plan.classes) {
       this.renderer.addClass(element, className);
     }
     for (const [name, value] of Object.entries(plan.attrs)) {
-      this.renderer.setAttribute(element, name, value);
+      this.renderer.setAttribute(element, name, evaluateBindings(value, context));
     }
     if (isRoot) {
       const style: CssMap = resolveStyle(plan.node, this.breakpoint());
@@ -187,9 +218,13 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
       }
     }
     if (plan.html) {
-      this.renderer.setProperty(element, 'innerHTML', this.sanitizer.bypassSecurityTrustHtml(plan.html));
+      this.renderer.setProperty(
+        element,
+        'innerHTML',
+        this.sanitizer.bypassSecurityTrustHtml(evaluateBindings(plan.html, context)),
+      );
     } else if (plan.text !== undefined) {
-      this.renderer.appendChild(element, this.renderer.createText(plan.text));
+      this.renderer.appendChild(element, this.renderer.createText(evaluateBindings(plan.text, context)));
     }
     return element;
   }

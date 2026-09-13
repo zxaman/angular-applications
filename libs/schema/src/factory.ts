@@ -1,7 +1,7 @@
 import { createId } from './ids';
-import type { AppDocument, AppNode, CssMap, NodeProps, PageDef, ThemeTokens } from './types';
+import type { AppDocument, AppNode, CssMap, NodeProps, PageDef, StateType, StateVariable, ThemeTokens } from './types';
 
-export const DOCUMENT_VERSION = 1;
+export const DOCUMENT_VERSION = 2;
 export const DOCUMENT_KIND = 'appstudio.document' as const;
 
 export const DEFAULT_THEME: ThemeTokens = {
@@ -77,6 +77,7 @@ export function createDocument(name = 'My Application'): AppDocument {
     },
     theme: { ...DEFAULT_THEME },
     globalStyles: [],
+    state: [],
     pages: [home],
     settings: {
       prefix: 'app',
@@ -95,6 +96,37 @@ export function slugifyRoute(value: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug === 'home' || slug === '' ? '' : slug;
+}
+
+/** Creates a state variable with a sensible default for its type. */
+export function createStateVariable(options: {
+  name: string;
+  type?: StateType;
+  initial?: string;
+  description?: string;
+  id?: string;
+}): StateVariable {
+  const type = options.type ?? 'string';
+  const defaults: Record<StateType, string> = { string: '', number: '0', boolean: 'false', list: '[]', object: '{}' };
+  return {
+    id: options.id ?? createId('s'),
+    name: sanitiseIdentifier(options.name),
+    type,
+    initial: options.initial ?? defaults[type],
+    description: options.description,
+  };
+}
+
+/** `User Name` -> `userName`; keeps generated code valid. */
+export function sanitiseIdentifier(value: string): string {
+  const cleaned = value
+    .trim()
+    .replace(/[^a-zA-Z0-9_$ ]/g, '')
+    .replace(/\s+(.)/g, (_match, char: string) => char.toUpperCase())
+    .replace(/\s+/g, '');
+  const camel = cleaned.charAt(0).toLowerCase() + cleaned.slice(1);
+  const safe = /^[a-zA-Z_$]/.test(camel) ? camel : `value${camel}`;
+  return safe || 'value';
 }
 
 export function isAppDocument(value: unknown): value is AppDocument {

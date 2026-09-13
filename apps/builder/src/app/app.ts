@@ -3,6 +3,7 @@ import { UiIconComponent } from '@appstudio/ui';
 import { BuilderStateService } from './core/builder-state.service';
 import { PersistenceService } from './core/persistence.service';
 import { CanvasComponent } from './features/canvas/canvas.component';
+import { DataPanelComponent } from './features/panels/data-panel.component';
 import { ExportPanelComponent } from './features/export/export-panel.component';
 import { InspectorComponent } from './features/inspector/inspector.component';
 import { LayersPanelComponent } from './features/panels/layers-panel.component';
@@ -27,6 +28,7 @@ import { TopbarComponent } from './features/shell/topbar.component';
     TopbarComponent,
     StatusbarComponent,
     CanvasComponent,
+    DataPanelComponent,
     WidgetsPanelComponent,
     LayersPanelComponent,
     PagesPanelComponent,

@@ -4,6 +4,9 @@
  *
  *   npm run export:sample            # writes to exports/sample
  *   npm run export:sample -- widget  # one component per widget
+ *
+ * The sample also carries app state and a repeated section, so the exported
+ * `AppStore` and `@for` output is exercised end to end.
  */
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -11,8 +14,15 @@ import { fileURLToPath } from 'node:url';
 
 import { generateProject } from '../libs/generator/src/index';
 import type { Granularity } from '../libs/generator/src/index';
-import { setNodeComponentName, setNodeCss } from '../libs/schema/src/index';
-import { landingTemplate } from '../libs/widgets/src/index';
+import {
+  addStateVariable,
+  createStateVariable,
+  setNodeComponentName,
+  setNodeCss,
+  setNodeRepeat,
+  updateNodeProps,
+} from '../libs/schema/src/index';
+import { createNodeFromWidget, landingTemplate } from '../libs/widgets/src/index';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const outDir = join(here, '..', 'exports', 'sample');
@@ -39,6 +49,52 @@ if (page && features) {
     'acme-grid.css',
   );
 }
+// A state-driven, repeated section: proves the generated AppStore + @for compile.
+doc = addStateVariable(
+  doc,
+  createStateVariable({ name: 'sectionTitle', initial: 'What customers say', description: 'Heading above the quotes' }),
+);
+doc = addStateVariable(
+  doc,
+  createStateVariable({
+    name: 'testimonials',
+    type: 'list',
+    initial: JSON.stringify(
+      [
+        { quote: 'Shipped our landing page in an afternoon.', author: 'Priya' },
+        { quote: 'The exported code reads like it was hand written.', author: 'Tom' },
+      ],
+      null,
+      2,
+    ),
+    description: 'Customer quotes',
+  }),
+);
+
+const quote = createNodeFromWidget('column', {
+  name: 'Testimonial',
+  children: [
+    createNodeFromWidget('text', { props: { text: '{{ item.quote }}' } }),
+    createNodeFromWidget('text', { props: { text: '— {{ item.author }}' } }),
+  ],
+});
+const testimonials = createNodeFromWidget('column', {
+  name: 'Testimonials',
+  props: { gap: '16px', padding: '32px 16px' },
+  children: [createNodeFromWidget('heading', { props: { text: '{{ state.sectionTitle }}', level: 'h2' } }), quote],
+});
+doc = updateNodeProps(doc, testimonials.id, { gap: '16px' });
+if (page) {
+  doc = {
+    ...doc,
+    pages: doc.pages.map((entry) =>
+      entry.id === page.id ? { ...entry, root: { ...entry.root, children: [...entry.root.children, testimonials] } } : entry,
+    ),
+  };
+}
+// Applied last so the repeater lands on the node that is actually in the tree.
+doc = setNodeRepeat(doc, quote.id, { collection: 'testimonials', itemName: 'item', indexName: 'index' });
+
 doc.globalStyles.push({
   name: 'brand.css',
   content: '/* Imported global stylesheet */\n:root {\n  --brand: #ff5a1f;\n}\n',
@@ -59,7 +115,9 @@ for (const file of result.files) {
 }
 
 console.log(`Exported ${result.stats.files} files to ${outDir}`);
-console.log(`  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}`);
+console.log(
+  `  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}, state: ${result.stats.stateVariables}`,
+);
 for (const warning of result.warnings) {
   console.warn(`  warning: ${warning}`);
 }

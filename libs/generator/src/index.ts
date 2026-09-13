@@ -5,5 +5,6 @@ export * from './template';
 export * from './styles';
 export * from './component';
 export * from './scaffold';
+export * from './store';
 export * from './generate';
 export * from './tree';

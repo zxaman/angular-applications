@@ -1,6 +1,6 @@
 import type { AppNode } from '@appstudio/schema';
 import { allClasses, iconSvg, parseList, parseSelectOptions } from '@appstudio/widgets';
-import { escapeAttr, escapeHtml, escapeTs, pascal } from './naming';
+import { escapeAttr, escapeHtml, escapeTs, indent, pascal } from './naming';
 import type { ComponentPlan } from './plan';
 
 export interface GeneratedHandler {
@@ -12,6 +12,8 @@ export interface TemplateResult {
   html: string;
   needsForms: boolean;
   needsRouter: boolean;
+  /** True when the template reads `store.*`, so the component must inject it. */
+  needsStore: boolean;
   hasForm: boolean;
   handlers: GeneratedHandler[];
   modelDefaults: Record<string, string>;
@@ -32,9 +34,47 @@ function isInternalRoute(href: string): boolean {
  * `ngModel` for form fields, `routerLink` for internal links and click handlers
  * for buttons, so exported projects are immediately functional.
  */
+const BINDING_SPLIT = /(\{\{\s*[^{}]+?\s*\}\})/g;
+const BINDING_ONLY = /^\{\{\s*([^{}]+?)\s*\}\}$/;
+
+export function hasBinding(value: string): boolean {
+  return value.includes('{{');
+}
+
+/** `state.count` -> `store.count()`, `state.user.name` -> `store.user().name`. */
+export function toAngularExpression(path: string): string {
+  if (!path.startsWith('state.')) {
+    return path;
+  }
+  const [head, ...tail] = path.slice('state.'.length).split('.');
+  return tail.length > 0 ? `store.${head}().${tail.join('.')}` : `store.${head}()`;
+}
+
+/** Builds a single Angular expression for text that mixes literals and bindings. */
+export function bindingExpression(text: string): string {
+  const parts = text.split(BINDING_SPLIT).filter((part) => part.length > 0);
+  const expressions = parts.map((part) => {
+    const match = BINDING_ONLY.exec(part);
+    return match ? toAngularExpression(match[1].trim()) : `'${escapeTs(part)}'`;
+  });
+  return expressions.length === 1 ? expressions[0] : expressions.join(' + ');
+}
+
+/**
+ * Rewrites bindings in place, keeping the literal text around them:
+ * `Total: {{ state.count }}` -> `Total: {{ store.count() }}`.
+ */
+export function interpolateBindings(text: string): string {
+  return text.replace(BINDING_SPLIT, (match) => {
+    const inner = BINDING_ONLY.exec(match);
+    return inner ? `{{ ${toAngularExpression(inner[1].trim())} }}` : match;
+  });
+}
+
 class TemplateEmitter {
   needsForms = false;
   needsRouter = false;
+  needsStore = false;
   hasForm = false;
 
   private readonly handlers: GeneratedHandler[] = [];
@@ -53,6 +93,7 @@ class TemplateEmitter {
       html: `${html}\n`,
       needsForms: this.needsForms,
       needsRouter: this.needsRouter,
+      needsStore: this.needsStore,
       hasForm: this.hasForm,
       handlers: this.handlers,
       modelDefaults: Object.fromEntries(this.modelDefaults),
@@ -72,17 +113,25 @@ class TemplateEmitter {
     const input = this.inputName(node, key);
     const raw = node.props[key];
     const value = raw === null || raw === undefined || raw === '' ? fallback : String(raw);
+    if (hasBinding(value)) {
+      this.needsStore = true;
+      return interpolateBindings(value);
+    }
     return input ? `{{ ${input}() }}` : escapeHtml(value);
   }
 
-  /** `placeholder="Type here"` or `[placeholder]="placeholder()"`. */
+  /** `placeholder="Type here"`, `[placeholder]="placeholder()"`, or a binding. */
   private attr(node: AppNode, key: string, attribute: string, fallback = ''): string {
     const input = this.inputName(node, key);
     const raw = node.props[key];
+    const value = raw === null || raw === undefined ? fallback : String(raw);
+    if (hasBinding(value)) {
+      this.needsStore = true;
+      return ` [${attribute}]="${bindingExpression(value)}"`;
+    }
     if (input) {
       return ` [${attribute}]="${input}()"`;
     }
-    const value = raw === null || raw === undefined ? fallback : String(raw);
     if (value === '') {
       return '';
     }
@@ -123,6 +172,9 @@ class TemplateEmitter {
 
   private emitChildComponent(child: ComponentPlan, depth: number): string {
     this.childComponents.add(child.className);
+    if (child.inputs.some((input) => hasBinding(String(input.value)))) {
+      this.needsStore = true;
+    }
     return `${pad(depth)}<${child.selector}${childAttributes(child)} />`;
   }
 
@@ -132,6 +184,21 @@ class TemplateEmitter {
       return this.emitChildComponent(childPlan, depth);
     }
 
+    const markup = this.emitElement(node, depth);
+    const repeat = node.repeat;
+    if (!repeat?.collection) {
+      return markup;
+    }
+    this.needsStore = true;
+    const item = repeat.itemName || 'item';
+    const aliases = repeat.indexName && repeat.indexName !== '$index' ? `; let ${repeat.indexName} = $index` : '';
+    return `${pad(depth)}@for (${item} of store.${repeat.collection}(); track $index${aliases}) {\n${indent(
+      markup,
+      2,
+    )}\n${pad(depth)}}`;
+  }
+
+  private emitElement(node: AppNode, depth: number): string {
     const cls = ` class="${this.classNames(node)}"`;
     const renderChildren = (at: number): string => node.children.map((child) => this.emitNode(child, at)).join('\n');
     const children = renderChildren(depth + 1);
@@ -400,6 +467,12 @@ export function emitTemplate(plan: ComponentPlan, byNodeId: Map<string, Componen
 /** Attributes used when a parent renders a child component. */
 export function childAttributes(plan: ComponentPlan): string {
   return plan.inputs
-    .map((input) => (input.type === 'string' ? ` ${input.name}="${escapeAttr(String(input.value))}"` : ` [${input.name}]="${input.value}"`))
+    .map((input) => {
+      const value = String(input.value);
+      if (input.type === 'string' && hasBinding(value)) {
+        return ` [${input.name}]="${bindingExpression(value)}"`;
+      }
+      return input.type === 'string' ? ` ${input.name}="${escapeAttr(value)}"` : ` [${input.name}]="${input.value}"`;
+    })
     .join('');
 }

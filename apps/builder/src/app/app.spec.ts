@@ -83,6 +83,44 @@ describe('AppStudio shell', () => {
     expect(frame.style.width).toBe('576px');
   });
 
+  it('resolves state bindings and repeats a node on the canvas', () => {
+    state.addStateVariable('headline', 'string');
+    state.updateStateVariable(state.stateVariables()[0]!.id, { initial: 'Live title' });
+    state.addStateVariable('rows', 'list');
+    state.updateStateVariable(state.stateVariables()[1]!.id, {
+      initial: '[{"label":"Alpha"},{"label":"Beta"},{"label":"Gamma"}]',
+    });
+
+    const page = state.activePage()!;
+    const headingId = state.addWidget('heading', page.root.id, -1)!;
+    state.updateProp('text', '{{ state.headline }}');
+    const cardId = state.addWidget('card', page.root.id, -1)!;
+    state.updateProp('title', '{{ item.label }}');
+    state.setNodeRepeat({ collection: 'rows', itemName: 'item', indexName: 'index' });
+    fixture.detectChanges();
+
+    const heading = root.querySelector(`[data-node-id="${headingId}"] .as-heading`) as HTMLElement;
+    expect(heading.textContent).toBe('Live title');
+
+    // The repeater draws one copy per item inside the node's host element.
+    const copies = root.querySelectorAll(`[data-node-id="${cardId}"] .as-card`);
+    expect(copies.length).toBe(3);
+    expect(copies[0]!.textContent).toContain('Alpha');
+    expect(copies[2]!.textContent).toContain('Gamma');
+  });
+
+  it('manages state from the data panel', () => {
+    const dataTab = [...root.querySelectorAll<HTMLElement>('.rail button')].find((button) =>
+      button.textContent?.includes('Data'),
+    );
+    expect(dataTab).toBeTruthy();
+    dataTab!.click();
+    fixture.detectChanges();
+
+    expect(root.querySelector('studio-data-panel')).toBeTruthy();
+    expect(state.leftPanel()).toBe('data');
+  });
+
   it('opens the export drawer from the rail', () => {
     const exportButton = [...root.querySelectorAll<HTMLElement>('.rail button')].find((button) =>
       button.textContent?.includes('Export'),

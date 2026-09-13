@@ -4,6 +4,7 @@ import { emitComponentClass, emitComponentSpec } from './component';
 import { kebab } from './naming';
 import { planProject } from './plan';
 import { scaffoldFiles } from './scaffold';
+import { emitAppStore } from './store';
 import { emitComponentStyles, emitGlobalStyles } from './styles';
 import { emitTemplate } from './template';
 import type { FileKind, GeneratedFile, GenerateOptions, GenerateResult, NormalisedOptions } from './types';
@@ -76,6 +77,10 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
     ...globalStyleFiles,
   ];
 
+  if (doc.state.length > 0) {
+    files.push({ path: 'src/app/core/app-store.ts', contents: emitAppStore(doc.state), kind: 'ts' });
+  }
+
   let widgets = 0;
   for (const component of plan.all) {
     const template = emitTemplate(component, plan.byNodeId);
@@ -110,6 +115,7 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
       components: plan.all.length - plan.pages.length,
       widgets,
       importedStylesheets: globalStylePaths.length,
+      stateVariables: doc.state.length,
     },
   };
 }

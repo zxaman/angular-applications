@@ -11,6 +11,8 @@ const migrations: Record<number, Migration> = {
   // 0 -> 1: initial release, nothing to rewrite, but documents without `kind`
   // (hand written fixtures) get normalised here.
   0: (doc) => ({ ...doc, kind: 'appstudio.document' }),
+  // 1 -> 2: app state and repeaters were introduced.
+  1: (doc) => ({ ...doc, state: Array.isArray(doc['state']) ? doc['state'] : [] }),
 };
 
 export interface MigrateResult {
