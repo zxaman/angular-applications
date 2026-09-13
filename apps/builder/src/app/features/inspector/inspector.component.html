@@ -69,6 +69,162 @@
         </section>
 
         <section class="block">
+          <div class="block-head">
+            <h3>Actions</h3>
+            <span class="spacer"></span>
+            <button type="button" class="btn sm ghost" (click)="addAction('navigate')">Navigate</button>
+            <button type="button" class="btn sm ghost" (click)="addAction('openUrl')">URL</button>
+            <button type="button" class="btn sm ghost" (click)="addAction('setState')">Set state</button>
+            <button type="button" class="btn sm ghost" (click)="addAction('http')">HTTP</button>
+          </div>
+          @for (action of state.selectedActions(); track action.id; let ai = $index) {
+            <div class="action">
+              <div class="action-head">
+                <span class="badge accent">{{ ai + 1 }}</span>
+                <strong>{{ actionLabels[action.kind] }}</strong>
+                <span class="spacer"></span>
+                <button type="button" class="btn sm ghost danger" (click)="state.removeNodeAction(action.id)">
+                  <ui-icon name="trash" [size]="12" />
+                </button>
+              </div>
+              <div class="field">
+                <label [for]="'act-trigger-' + ai">Trigger</label>
+                <select
+                  [id]="'act-trigger-' + ai"
+                  class="input"
+                  [ngModel]="action.trigger"
+                  (ngModelChange)="state.updateNodeAction(action.id, { trigger: $event })"
+                >
+                  @for (trigger of triggerOptions(); track trigger) {
+                    <option [value]="trigger">{{ triggerLabels[trigger] }}</option>
+                  }
+                </select>
+              </div>
+              <div class="field">
+                <label [for]="'act-kind-' + ai">Action</label>
+                <select
+                  [id]="'act-kind-' + ai"
+                  class="input"
+                  [ngModel]="action.kind"
+                  (ngModelChange)="state.updateNodeAction(action.id, { kind: $event })"
+                >
+                  @for (kind of actionKinds; track kind) {
+                    <option [value]="kind">{{ actionLabels[kind] }}</option>
+                  }
+                </select>
+              </div>
+
+              @switch (action.kind) {
+                @case ('navigate') {
+                  <div class="field">
+                    <label [for]="'act-page-' + ai">Page</label>
+                    <select
+                      [id]="'act-page-' + ai"
+                      class="input"
+                      [ngModel]="action.pageId ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { pageId: $event })"
+                    >
+                      <option value="">— Choose a page —</option>
+                      @for (page of state.document().pages; track page.id) {
+                        <option [value]="page.id">/{{ page.route }} — {{ page.name }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+                @case ('openUrl') {
+                  <div class="field">
+                    <label [for]="'act-url-' + ai">URL</label>
+                    <input
+                      [id]="'act-url-' + ai"
+                      class="input"
+                      [ngModel]="action.url ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { url: $event })"
+                    />
+                  </div>
+                  <label class="check">
+                    <input
+                      type="checkbox"
+                      [ngModel]="action.newTab !== false"
+                      (ngModelChange)="state.updateNodeAction(action.id, { newTab: $event })"
+                    />
+                    Open in a new tab
+                  </label>
+                }
+                @case ('setState') {
+                  <div class="field">
+                    <label [for]="'act-var-' + ai">Variable</label>
+                    <select
+                      [id]="'act-var-' + ai"
+                      class="input"
+                      [ngModel]="action.variable ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { variable: $event })"
+                    >
+                      <option value="">— Choose a variable —</option>
+                      @for (variable of state.stateVariables(); track variable.id) {
+                        <option [value]="variable.name">{{ variable.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label [for]="'act-value-' + ai">Value</label>
+                    <input
+                      [id]="'act-value-' + ai"
+                      class="input"
+                      placeholder="text, 42, true or a binding"
+                      [ngModel]="action.value ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { value: $event })"
+                    />
+                  </div>
+                }
+                @case ('http') {
+                  <div class="field">
+                    <label [for]="'act-method-' + ai">Method</label>
+                    <select
+                      [id]="'act-method-' + ai"
+                      class="input"
+                      [ngModel]="action.method ?? 'GET'"
+                      (ngModelChange)="state.updateNodeAction(action.id, { method: $event })"
+                    >
+                      @for (method of ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']; track method) {
+                        <option [value]="method">{{ method }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label [for]="'act-endpoint-' + ai">URL</label>
+                    <input
+                      [id]="'act-endpoint-' + ai"
+                      class="input"
+                      [ngModel]="action.url ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { url: $event })"
+                    />
+                  </div>
+                  <div class="field">
+                    <label [for]="'act-assign-' + ai">Store response in</label>
+                    <select
+                      [id]="'act-assign-' + ai"
+                      class="input"
+                      [ngModel]="action.assignTo ?? ''"
+                      (ngModelChange)="state.updateNodeAction(action.id, { assignTo: $event })"
+                    >
+                      <option value="">— Do not store —</option>
+                      @for (variable of state.stateVariables(); track variable.id) {
+                        <option [value]="variable.name">{{ variable.name }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+              }
+            </div>
+          } @empty {
+            <p class="hint">
+              No actions yet. Actions become real methods in the exported component — navigation, links, state writes and
+              HTTP calls.
+            </p>
+          }
+        </section>
+
+        <section class="block">
           <h3>Data &amp; bindings</h3>
           <div class="field">
             <label for="node-repeat">Repeat over</label>

@@ -17,6 +17,7 @@ import {
 } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import {
+  actionsForTrigger,
   EMPTY_CONTEXT,
   evaluateBindings,
   repeatContext,
@@ -87,6 +88,8 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
   readonly dropNode = output<DropEvent>();
   readonly dragStart = output<string>();
   readonly dragEnd = output<void>();
+  /** Preview mode: the node was clicked and its actions should run. */
+  readonly runActions = output<string>();
 
   protected readonly dropHint = signal<'before' | 'after' | 'inside' | null>(null);
   protected readonly isSelected = computed(() => !this.preview() && this.selectedId() === this.node().id);
@@ -197,6 +200,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     ref.instance.dropNode.subscribe((event) => this.dropNode.emit(event));
     ref.instance.dragStart.subscribe((id) => this.dragStart.emit(id));
     ref.instance.dragEnd.subscribe(() => this.dragEnd.emit());
+    ref.instance.runActions.subscribe((id) => this.runActions.emit(id));
     this.childRefs.push(ref);
     this.childHosts.push(ref.location.nativeElement);
     return ref;
@@ -233,6 +237,10 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
 
   protected onClick(event: MouseEvent): void {
     if (this.preview()) {
+      event.stopPropagation();
+      if (actionsForTrigger(this.node(), 'click').length > 0) {
+        this.runActions.emit(this.node().id);
+      }
       return;
     }
     event.stopPropagation();

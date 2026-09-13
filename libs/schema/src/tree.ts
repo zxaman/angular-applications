@@ -5,6 +5,7 @@ import type {
   Breakpoint,
   BreakpointStyles,
   CssMap,
+  NodeAction,
   NodeLocation,
   NodeProps,
   PageDef,
@@ -197,6 +198,35 @@ export function setNodeComponentName(doc: AppDocument, id: string, componentName
 /** Attaches or clears a repeater on a node. */
 export function setNodeRepeat(doc: AppDocument, id: string, repeat: RepeatConfig | undefined): AppDocument {
   return updateNode(doc, id, (node) => ({ ...node, repeat }));
+}
+
+// ------------------------------------------------------------------- actions
+
+export function setNodeActions(doc: AppDocument, id: string, actions: NodeAction[]): AppDocument {
+  return updateNode(doc, id, (node) => ({ ...node, actions: actions.length > 0 ? actions : undefined }));
+}
+
+export function addNodeAction(doc: AppDocument, id: string, action: NodeAction): AppDocument {
+  return updateNode(doc, id, (node) => ({ ...node, actions: [...(node.actions ?? []), action] }));
+}
+
+export function updateNodeAction(
+  doc: AppDocument,
+  id: string,
+  actionId: string,
+  patch: Partial<NodeAction>,
+): AppDocument {
+  return updateNode(doc, id, (node) => ({
+    ...node,
+    actions: (node.actions ?? []).map((action) => (action.id === actionId ? { ...action, ...patch } : action)),
+  }));
+}
+
+export function removeNodeAction(doc: AppDocument, id: string, actionId: string): AppDocument {
+  return updateNode(doc, id, (node) => {
+    const actions = (node.actions ?? []).filter((action) => action.id !== actionId);
+    return { ...node, actions: actions.length > 0 ? actions : undefined };
+  });
 }
 
 // --------------------------------------------------------------------- state

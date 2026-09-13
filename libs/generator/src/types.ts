@@ -38,6 +38,7 @@ export interface GenerateStats {
   widgets: number;
   importedStylesheets: number;
   stateVariables: number;
+  actions: number;
 }
 
 export interface GenerateResult {

@@ -14,6 +14,8 @@ export interface ScaffoldContext {
   options: NormalisedOptions;
   /** Project relative paths of user imported global stylesheets. */
   globalStylePaths: string[];
+  /** True when a generated component performs an HTTP action. */
+  http?: boolean;
 }
 
 function angularVersion(options: GenerateOptions): string {
@@ -223,13 +225,16 @@ export function emitIndexHtml(doc: AppDocument): string {
 `;
 }
 
-export function emitAppConfig(): string {
+/** `provideHttpClient()` is added only when a component issues HTTP requests. */
+export function emitAppConfig(options: { http?: boolean } = {}): string {
+  const httpImport = options.http ? "import { provideHttpClient, withFetch } from '@angular/common/http';\n" : '';
+  const httpProvider = options.http ? ', provideHttpClient(withFetch())' : '';
   return `import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+${httpImport}import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
-  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes, withComponentInputBinding())],
+  providers: [provideBrowserGlobalErrorListeners(), provideRouter(routes, withComponentInputBinding())${httpProvider}],
 };
 `;
 }
@@ -493,7 +498,7 @@ export function scaffoldFiles(ctx: ScaffoldContext): GeneratedFile[] {
     { path: 'tsconfig.spec.json', contents: emitTsConfigSpec(), kind: 'json' },
     { path: 'src/main.ts', contents: emitMainTs(), kind: 'ts' },
     { path: 'src/index.html', contents: emitIndexHtml(doc), kind: 'html' },
-    { path: 'src/app/app.config.ts', contents: emitAppConfig(), kind: 'ts' },
+    { path: 'src/app/app.config.ts', contents: emitAppConfig({ http: ctx.http }), kind: 'ts' },
     { path: 'src/app/app.routes.ts', contents: emitAppRoutes(plan), kind: 'ts' },
     { path: 'src/app/app.ts', contents: emitRootComponent(prefix), kind: 'ts' },
     { path: 'src/app/app.html', contents: emitRootTemplate(), kind: 'html' },

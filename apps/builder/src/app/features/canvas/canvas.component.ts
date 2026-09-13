@@ -13,7 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { BREAKPOINTS, getBreakpoint, type Breakpoint } from '@appstudio/schema';
 import { baseCss, getWidgetOrFallback, themeCss } from '@appstudio/widgets';
 import { UiIconComponent } from '@appstudio/ui';
-import { stateMap, type BindingContext } from '@appstudio/schema';
+import { findNode, runPreviewActions, stateMap, type BindingContext } from '@appstudio/schema';
 import { BuilderStateService } from '../../core/builder-state.service';
 import type { DragPayload } from '../../core/dnd';
 import { NodeViewComponent, type DropEvent } from './node-view.component';
@@ -46,8 +46,22 @@ export class CanvasComponent implements OnDestroy {
 
   protected readonly frameWidth = computed(() => getBreakpoint(this.breakpoint()).canvasWidth);
 
-  /** Live values for `{{ state.* }}` bindings and repeaters on the canvas. */
-  protected readonly bindingContext = computed<BindingContext>(() => ({ state: stateMap(this.state.document()), locals: {} }));
+  /** Live values for `{{ state.* }}` bindings, repeaters and preview actions. */
+  protected readonly previewState = signal<Record<string, unknown>>({});
+
+  protected readonly bindingContext = computed<BindingContext>(() => ({ state: this.previewState(), locals: {} }));
+
+  /** Runs a node's `setState` actions so the preview behaves like the real app. */
+  protected onRunActions(nodeId: string): void {
+    const node = findNode(this.state.document(), nodeId)?.node;
+    if (!node) {
+      return;
+    }
+    const next = runPreviewActions(this.state.document(), node, 'click', this.previewState());
+    if (next !== this.previewState()) {
+      this.previewState.set(next);
+    }
+  }
 
   /** Breadcrumb of the selected node, outermost first. */
   protected readonly path = computed(() => {
@@ -67,6 +81,13 @@ export class CanvasComponent implements OnDestroy {
     effect(() => {
       const theme = this.state.document().theme;
       this.writeRuntimeCss(`${themeCss(theme, '.as-root')}\n\n${baseCss()}`);
+    });
+    // Preview state mirrors the document, so editing a variable's initial value
+    // or toggling preview mode resets what the canvas shows.
+    effect(() => {
+      const doc = this.state.document();
+      void this.state.preview();
+      this.previewState.set(stateMap(doc));
     });
   }
 

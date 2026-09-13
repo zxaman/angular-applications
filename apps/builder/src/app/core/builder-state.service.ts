@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import {
+  addNodeAction,
   addStateVariable,
   cloneDocument,
   cloneNodeWithNewIds,
@@ -13,10 +14,12 @@ import {
   moveNode,
   removeNode,
   createStateVariable,
+  removeNodeAction,
   removeStateVariable,
   setNodeComponentName,
   setNodeCss,
   setNodeRepeat,
+  updateNodeAction,
   updateStateVariable,
   setNodeStyle,
   slugifyRoute,
@@ -28,6 +31,7 @@ import {
   type AppSettings,
   type Breakpoint,
   type CssMap,
+  type NodeAction,
   type NodeLocation,
   type PageDef,
   type RepeatConfig,
@@ -395,6 +399,34 @@ export class BuilderStateService {
 
   removeStateVariable(id: string): void {
     this.commit((doc) => removeStateVariable(doc, id));
+  }
+
+  // ---------------------------------------------------------------- actions
+
+  readonly selectedActions = computed(() => this.selectedNode()?.actions ?? []);
+
+  addNodeAction(action: NodeAction): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => addNodeAction(doc, id, action));
+  }
+
+  updateNodeAction(actionId: string, patch: Partial<NodeAction>): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => updateNodeAction(doc, id, actionId, patch));
+  }
+
+  removeNodeAction(actionId: string): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => removeNodeAction(doc, id, actionId));
   }
 
   setNodeRepeat(repeat: RepeatConfig | undefined): void {

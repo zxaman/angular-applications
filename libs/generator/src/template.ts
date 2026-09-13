@@ -1,11 +1,15 @@
-import type { AppNode } from '@appstudio/schema';
+import { actionsForTrigger, type AppNode, type NodeAction } from '@appstudio/schema';
 import { allClasses, iconSvg, parseList, parseSelectOptions } from '@appstudio/widgets';
-import { escapeAttr, escapeHtml, escapeTs, indent, pascal } from './naming';
+import { escapeAttr, escapeHtml, escapeTs, indent, pascal, toAngularExpression } from './naming';
 import type { ComponentPlan } from './plan';
 
 export interface GeneratedHandler {
   name: string;
   comment: string;
+  /** Studio actions this handler runs, in order. */
+  actions: NodeAction[];
+  /** `event` for click/change handlers, `form` for submit handlers. */
+  param: 'event' | 'form';
 }
 
 export interface TemplateResult {
@@ -39,15 +43,6 @@ const BINDING_ONLY = /^\{\{\s*([^{}]+?)\s*\}\}$/;
 
 export function hasBinding(value: string): boolean {
   return value.includes('{{');
-}
-
-/** `state.count` -> `store.count()`, `state.user.name` -> `store.user().name`. */
-export function toAngularExpression(path: string): string {
-  if (!path.startsWith('state.')) {
-    return path;
-  }
-  const [head, ...tail] = path.slice('state.'.length).split('.');
-  return tail.length > 0 ? `store.${head}().${tail.join('.')}` : `store.${head}()`;
 }
 
 /** Builds a single Angular expression for text that mixes literals and bindings. */
@@ -147,8 +142,15 @@ class TemplateEmitter {
     return allClasses(node).join(' ');
   }
 
-  private handler(node: AppNode, suffix: string): string {
-    const label = String(node.props['label'] ?? node.props['text'] ?? 'Element');
+  private handler(
+    node: AppNode,
+    suffix: string,
+    actions: NodeAction[] = [],
+    param: 'event' | 'form' = 'event',
+  ): string {
+    const label = String(
+      node.name?.trim() || node.props['label'] || node.props['text'] || node.props['title'] || node.props['name'] || node.type,
+    );
     const base = `on${pascal(label)}${suffix}`;
     let name = base;
     let index = 2;
@@ -157,8 +159,43 @@ class TemplateEmitter {
       index += 1;
     }
     this.handlerNames.add(name);
-    this.handlers.push({ name, comment: `Action for the "${label}" ${node.type}.` });
+    this.handlers.push({ name, comment: `Action for the "${label}" ${node.type}.`, actions, param });
     return name;
+  }
+
+  /** Widgets whose click/submit/change binding is emitted by their own case. */
+  private static readonly INTERACTIVE = new Set([
+    'button',
+    'link',
+    'form',
+    'text-input',
+    'textarea',
+    'select',
+    'checkbox',
+    'switch',
+  ]);
+
+  /** Adds `(click)` to any non-interactive widget that carries click actions. */
+  private withClickActions(markup: string, node: AppNode): string {
+    const actions = actionsForTrigger(node, 'click');
+    if (actions.length === 0 || TemplateEmitter.INTERACTIVE.has(node.type)) {
+      return markup;
+    }
+    const name = this.handler(node, 'Click', actions);
+    const end = markup.indexOf('>');
+    if (end === -1) {
+      return markup;
+    }
+    return `${markup.slice(0, end)} (click)="${name}($event)"${markup.slice(end)}`;
+  }
+
+  /** `(ngModelChange)` binding for inputs that carry change actions. */
+  private changeBinding(node: AppNode): string {
+    const actions = actionsForTrigger(node, 'change');
+    if (actions.length === 0) {
+      return '';
+    }
+    return ` (ngModelChange)=\"${this.handler(node, 'Change', actions)}($event)\"`;
   }
 
   private modelField(node: AppNode, defaultValue = "''"): string {
@@ -199,6 +236,10 @@ class TemplateEmitter {
   }
 
   private emitElement(node: AppNode, depth: number): string {
+    return this.withClickActions(this.emitMarkup(node, depth), node);
+  }
+
+  private emitMarkup(node: AppNode, depth: number): string {
     const cls = ` class="${this.classNames(node)}"`;
     const renderChildren = (at: number): string => node.children.map((child) => this.emitNode(child, at)).join('\n');
     const children = renderChildren(depth + 1);
@@ -248,7 +289,9 @@ class TemplateEmitter {
           ...(children ? [children] : []),
           `${pad(depth + 1)}<button class="as-button is-primary is-md" type="submit">${escapeHtml(submitLabel)}</button>`,
         ].join('\n');
-        return `${pad(depth)}<form${cls} #form="ngForm" (ngSubmit)="onSubmit(form)">\n${body}\n${pad(depth)}</form>`;
+        const submitActions = actionsForTrigger(node, 'submit');
+        const submitName = submitActions.length > 0 ? this.handler(node, 'Submit', submitActions, 'form') : 'onSubmit';
+        return `${pad(depth)}<form${cls} #form="ngForm" (ngSubmit)="${submitName}(form)">\n${body}\n${pad(depth)}</form>`;
       }
 
       case 'heading': {
@@ -314,7 +357,8 @@ class TemplateEmitter {
 
       case 'button': {
         const type = String(node.props['buttonType'] ?? 'button');
-        const click = type === 'submit' ? '' : ` (click)="${this.handler(node, 'Click')}($event)"`;
+        const click =
+          type === 'submit' ? '' : ` (click)="${this.handler(node, 'Click', actionsForTrigger(node, 'click'))}($event)"`;
         return `${pad(depth)}<button${cls} type="${escapeAttr(type)}"${click}>${this.text(node, 'label', 'Button')}</button>`;
       }
 
@@ -332,7 +376,7 @@ class TemplateEmitter {
             String(node.props['inputType'] ?? 'text'),
           )}"${this.attr(node, 'placeholder', 'placeholder')} name="${escapeAttr(field)}" [(ngModel)]="model['${escapeTs(
             field,
-          )}']"${required} />`,
+          )}']"${this.changeBinding(node)}${required} />`,
           ...(String(node.props['helper'] ?? '')
             ? [`${pad(depth + 1)}<span class="as-helper">${escapeHtml(String(node.props['helper']))}</span>`]
             : []),
@@ -352,7 +396,7 @@ class TemplateEmitter {
             String(node.props['rows'] ?? 4),
           )}"${this.attr(node, 'placeholder', 'placeholder')} name="${escapeAttr(field)}" [(ngModel)]="model['${escapeTs(
             field,
-          )}']"${required}></textarea>`,
+          )}']"${this.changeBinding(node)}${required}></textarea>`,
         ];
         return `${pad(depth)}<div${cls}>\n${lines.join('\n')}\n${pad(depth)}</div>`;
       }
@@ -374,7 +418,7 @@ class TemplateEmitter {
           `${pad(depth + 1)}</label>`,
           `${pad(depth + 1)}<select class="as-control" name="${escapeAttr(
             field,
-          )}" [(ngModel)]="model['${escapeTs(field)}']">\n${optionLines.join('\n')}\n${pad(depth + 1)}</select>`,
+          )}" [(ngModel)]="model['${escapeTs(field)}']"${this.changeBinding(node)}>\n${optionLines.join('\n')}\n${pad(depth + 1)}</select>`,
         ];
         return `${pad(depth)}<div${cls}>\n${lines.join('\n')}\n${pad(depth)}</div>`;
       }
@@ -385,7 +429,7 @@ class TemplateEmitter {
         const lines = [
           `${pad(depth + 1)}<input class="as-checkbox-input" type="checkbox" name="${escapeAttr(field)}" [(ngModel)]="model['${escapeTs(
             field,
-          )}']" />`,
+          )}']"${this.changeBinding(node)} />`,
           `${pad(depth + 1)}<span class="as-checkbox-label">${this.text(node, 'label', 'Checkbox')}</span>`,
         ];
         return `${pad(depth)}<label${cls}>\n${lines.join('\n')}\n${pad(depth)}</label>`;
@@ -397,7 +441,7 @@ class TemplateEmitter {
         const lines = [
           `${pad(depth + 1)}<button class="as-switch-track" type="button" role="switch" [attr.aria-checked]="model['${escapeTs(
             field,
-          )}'] ? 'true' : 'false'" (click)="model['${escapeTs(field)}'] = !model['${escapeTs(field)}']">`,
+          )}'] ? 'true' : 'false'" (click)="model['${escapeTs(field)}'] = !model['${escapeTs(field)}']"${this.changeBinding(node)}>`,
           `${pad(depth + 2)}<span class="as-switch-thumb"></span>`,
           `${pad(depth + 1)}</button>`,
           `${pad(depth + 1)}<span class="as-checkbox-label">${this.text(node, 'label', 'Switch')}</span>`,
@@ -444,7 +488,8 @@ class TemplateEmitter {
         )}${this.boolAttr(node, 'autoplay', 'autoplay')} playsinline></video>`;
 
       case 'navbar': {
-        const links = renderChildren(depth + 2);
+        // `children` is already rendered at depth + 1; re-indent rather than emit twice.
+        const links = children.trim().length > 0 ? indent(children, 2) : '';
         const lines = [
           `${pad(depth + 1)}<span class="as-navbar-brand">${this.text(node, 'brand', 'My App')}</span>`,
           links.trim().length > 0

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { createAction } from '@appstudio/schema';
 import { landingTemplate } from '@appstudio/widgets';
 import { App } from './app';
 import { BuilderStateService } from './core/builder-state.service';
@@ -107,6 +108,31 @@ describe('AppStudio shell', () => {
     expect(copies.length).toBe(3);
     expect(copies[0]!.textContent).toContain('Alpha');
     expect(copies[2]!.textContent).toContain('Gamma');
+  });
+
+  it('runs set-state actions in preview mode', () => {
+    state.addStateVariable('counter', 'number');
+    const counterId = state.stateVariables()[0]!.id;
+    state.updateStateVariable(counterId, { initial: '1' });
+
+    const page = state.activePage()!;
+    const headingId = state.addWidget('heading', page.root.id, -1)!;
+    state.updateProp('text', 'Clicked {{ state.counter }} times');
+    const buttonId = state.addWidget('button', page.root.id, -1)!;
+    state.addNodeAction({ ...createAction('setState'), variable: 'counter', value: '7' });
+
+    fixture.detectChanges();
+    state.setPreview(true);
+    fixture.detectChanges();
+
+    const heading = () => root.querySelector(`[data-node-id="${headingId}"] .as-heading`) as HTMLElement;
+    expect(heading().textContent).toBe('Clicked 1 times');
+
+    const button = root.querySelector(`[data-node-id="${buttonId}"] .as-button`) as HTMLElement;
+    button.click();
+    fixture.detectChanges();
+
+    expect(heading().textContent).toBe('Clicked 7 times');
   });
 
   it('manages state from the data panel', () => {

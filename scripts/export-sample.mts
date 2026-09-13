@@ -15,10 +15,12 @@ import { fileURLToPath } from 'node:url';
 import { generateProject } from '../libs/generator/src/index';
 import type { Granularity } from '../libs/generator/src/index';
 import {
+  addNodeAction,
   addStateVariable,
   createStateVariable,
   setNodeComponentName,
   setNodeCss,
+  createAction,
   setNodeRepeat,
   updateNodeProps,
 } from '../libs/schema/src/index';
@@ -95,11 +97,40 @@ if (page) {
 // Applied last so the repeater lands on the node that is actually in the tree.
 doc = setNodeRepeat(doc, quote.id, { collection: 'testimonials', itemName: 'item', indexName: 'index' });
 
+// Actions: the hero button navigates, a card fetches a quote into state.
+const heroButton = findNodeById(doc, 'button');
+if (heroButton) {
+  doc = addNodeAction(doc, heroButton.id, {
+    ...createAction('navigate'),
+    pageId: doc.pages[1]?.id,
+  });
+}
+doc = addNodeAction(doc, testimonials.id, {
+  ...createAction('http'),
+  method: 'GET',
+  url: 'https://jsonplaceholder.typicode.com/todos/1',
+  assignTo: 'sectionTitle',
+});
+
 doc.globalStyles.push({
   name: 'brand.css',
   content: '/* Imported global stylesheet */\n:root {\n  --brand: #ff5a1f;\n}\n',
   importedAt: new Date().toISOString(),
 });
+
+/** First node of a given widget type, depth first. */
+function findNodeById(document: typeof doc, type: string) {
+  let found: { id: string } | null = null;
+  const walk = (node: { id: string; type: string; children: typeof node[] }): void => {
+    if (found || node.type !== type) {
+      node.children.forEach(walk);
+      return;
+    }
+    found = node;
+  };
+  document.pages.forEach((page) => walk(page.root));
+  return found;
+}
 
 const result = generateProject(doc, {
   projectName: 'acme-store',

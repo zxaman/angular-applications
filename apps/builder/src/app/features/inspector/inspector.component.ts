@@ -1,10 +1,15 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  ACTION_LABELS,
   BREAKPOINTS,
+  TRIGGER_LABELS,
   bindingPaths,
+  createAction,
   nodeBindingTexts,
   sanitiseIdentifier,
+  triggersFor,
+  type ActionKind,
   type Breakpoint,
   type CssMap,
   type RepeatConfig,
@@ -208,6 +213,22 @@ export class InspectorComponent {
 
   protected setStyle(property: string, value: string): void {
     this.state.setStyle(property, value, this.editingBreakpoint());
+  }
+
+  // --------------------------------------------------------------- actions
+
+  protected readonly actionLabels = ACTION_LABELS;
+  protected readonly triggerLabels = TRIGGER_LABELS;
+  protected readonly actionKinds: ActionKind[] = ['navigate', 'openUrl', 'setState', 'http'];
+
+  protected readonly triggerOptions = computed(() => {
+    const node = this.node();
+    return node ? triggersFor(node.type) : (['click'] as const);
+  });
+
+  protected addAction(kind: ActionKind): void {
+    const trigger = this.triggerOptions()[0] ?? 'click';
+    this.state.addNodeAction(createAction(kind, trigger));
   }
 
   // ---------------------------------------------------------------- repeat

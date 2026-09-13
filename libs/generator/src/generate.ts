@@ -1,5 +1,6 @@
-import { validateDocument, type AppDocument } from '@appstudio/schema';
+import { traverse, validateDocument, type AppDocument, type NodeAction } from '@appstudio/schema';
 import { baseCss, WIDGET_TYPES } from '@appstudio/widgets';
+import type { ActionContext } from './actions';
 import { emitComponentClass, emitComponentSpec } from './component';
 import { kebab } from './naming';
 import { planProject } from './plan';
@@ -71,8 +72,18 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
     globalStyleFiles.push({ path, contents: style.content, kind: kindFor(path) });
   }
 
+  const actionContext: ActionContext = {
+    state: doc.state,
+    routeOf: (pageId: string) => doc.pages.find((page) => page.id === pageId)?.route,
+  };
+  const everyAction: NodeAction[] = [];
+  for (const page of doc.pages) {
+    traverse(page.root, (node) => everyAction.push(...(node.actions ?? [])));
+  }
+  const needsHttpClient = everyAction.some((action) => action.kind === 'http');
+
   const files: GeneratedFile[] = [
-    ...scaffoldFiles({ doc, plan, options: resolved, globalStylePaths }),
+    ...scaffoldFiles({ doc, plan, options: resolved, globalStylePaths, http: needsHttpClient }),
     { path: 'src/styles.scss', contents: emitGlobalStyles(doc.theme, baseCss()), kind: 'scss' },
     ...globalStyleFiles,
   ];
@@ -87,7 +98,7 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
     const dir = `src/app/${component.folder}`;
     files.push({
       path: `${dir}/${component.fileBase}.ts`,
-      contents: emitComponentClass(component, template, component.children),
+      contents: emitComponentClass(component, template, component.children, actionContext),
       kind: 'ts',
     });
     files.push({ path: `${dir}/${component.fileBase}.html`, contents: template.html, kind: 'html' });
@@ -116,6 +127,7 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
       widgets,
       importedStylesheets: globalStylePaths.length,
       stateVariables: doc.state.length,
+      actions: everyAction.length,
     },
   };
 }

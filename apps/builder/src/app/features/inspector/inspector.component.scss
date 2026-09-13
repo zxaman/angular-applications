@@ -207,3 +207,55 @@ kbd {
   gap: 6px;
   flex-wrap: wrap;
 }
+
+/* ---------- actions ---------- */
+.action {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--panel-2);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.action + .action {
+  margin-top: 8px;
+}
+
+.action-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.bindings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-size: 10px;
+  color: var(--text-soft);
+}
+
+.chip.missing {
+  border-color: var(--danger, #e05252);
+  color: var(--danger, #e05252);
+}

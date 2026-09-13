@@ -119,6 +119,40 @@ export function validateDocument(doc: AppDocument, knownWidgetTypes?: readonly s
           nodeId: node.id,
         });
       }
+      for (const action of node.actions ?? []) {
+        if (action.kind === 'navigate' && (!action.pageId || !doc.pages.some((page) => page.id === action.pageId))) {
+          issues.push({
+            severity: 'error',
+            path: nodePath,
+            message: 'A navigate action has no target page.',
+            nodeId: node.id,
+          });
+        }
+        if ((action.kind === 'openUrl' || action.kind === 'http') && !action.url?.trim()) {
+          issues.push({
+            severity: 'error',
+            path: nodePath,
+            message: `A ${action.kind} action is missing its URL.`,
+            nodeId: node.id,
+          });
+        }
+        if (action.kind === 'setState' && (!action.variable || !stateNames.has(action.variable))) {
+          issues.push({
+            severity: 'error',
+            path: nodePath,
+            message: 'A set-state action points at an unknown variable.',
+            nodeId: node.id,
+          });
+        }
+        if (action.kind === 'http' && action.assignTo && !stateNames.has(action.assignTo)) {
+          issues.push({
+            severity: 'warning',
+            path: nodePath,
+            message: `HTTP response would be assigned to unknown state "${action.assignTo}".`,
+            nodeId: node.id,
+          });
+        }
+      }
       if (knownWidgetTypes && !knownWidgetTypes.includes(node.type)) {
         issues.push({
           severity: 'warning',

@@ -47,7 +47,41 @@ export interface AppNode {
   cssFileName?: string;
   /** When set, this node is rendered once per item of the collection. */
   repeat?: RepeatConfig;
+  /** Interactions attached to this node, in execution order. */
+  actions?: NodeAction[];
   children: AppNode[];
+}
+
+export type ActionTrigger = 'click' | 'submit' | 'change';
+export type ActionKind = 'navigate' | 'openUrl' | 'setState' | 'http';
+export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+
+/**
+ * One interaction on a node.
+ *
+ * The studio runs `setState` actions live in preview mode; the generator turns
+ * every kind into a real method body in the exported component.
+ */
+export interface NodeAction {
+  id: string;
+  trigger: ActionTrigger;
+  kind: ActionKind;
+  /** `navigate`: target page id. */
+  pageId?: string;
+  /** `openUrl` and `http`: the address to open or call. */
+  url?: string;
+  /** `openUrl`: open in a new tab. */
+  newTab?: boolean;
+  /** `setState` / `http`: state variable to write. */
+  variable?: string;
+  /** `setState`: value to write. A `{{state.x}}` reference is resolved first. */
+  value?: string;
+  /** `http`: verb, defaults to GET. */
+  method?: HttpMethod;
+  /** `http`: assign the response to this state variable. */
+  assignTo?: string;
+  /** Optional label shown in the studio's action list. */
+  label?: string;
 }
 
 export type StateType = 'string' | 'number' | 'boolean' | 'list' | 'object';

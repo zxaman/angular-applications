@@ -95,3 +95,12 @@ export function indent(text: string, size = 2): string {
     .map((line) => (line.trim().length > 0 ? pad + line : line))
     .join('\n');
 }
+
+/** `state.count` -> `store.count()`, `state.user.name` -> `store.user().name`. */
+export function toAngularExpression(path: string): string {
+  if (!path.startsWith('state.')) {
+    return path;
+  }
+  const [head, ...tail] = path.slice('state.'.length).split('.');
+  return tail.length > 0 ? `store.${head}().${tail.join('.')}` : `store.${head}()`;
+}
