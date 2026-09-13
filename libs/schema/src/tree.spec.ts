@@ -175,7 +175,7 @@ describe('migrations', () => {
     const result = migrateDocument(raw);
     expect(result.doc.kind).toBe('appstudio.document');
     expect(result.migratedFrom).toBe(0);
-    expect(result.applied).toEqual([0, 1]);
+    expect(result.applied).toEqual([0, 1, 2]);
   });
 
   it('rejects files that are not projects', () => {

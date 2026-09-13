@@ -49,7 +49,43 @@ export interface AppNode {
   repeat?: RepeatConfig;
   /** Interactions attached to this node, in execution order. */
   actions?: NodeAction[];
+  /** When set, this node renders a component from the document library. */
+  instance?: NodeInstance;
   children: AppNode[];
+}
+
+export type ComponentInputType = 'string' | 'number' | 'boolean';
+
+/** One configurable value on a library component. */
+export interface ComponentInputDef {
+  /** camelCase identifier used in generated code. */
+  name: string;
+  label: string;
+  type: ComponentInputType;
+  /** Literal default, as text. */
+  default: string;
+}
+
+/**
+ * A reusable component: a subtree saved once and dropped anywhere.
+ *
+ * Instances render the same markup everywhere, so editing the definition updates
+ * every copy — in the studio and in the exported project.
+ */
+export interface ComponentDef {
+  id: string;
+  name: string;
+  description?: string;
+  inputs: ComponentInputDef[];
+  root: AppNode;
+  updatedAt: string;
+}
+
+/** A placed copy of a library component. */
+export interface NodeInstance {
+  componentId: string;
+  /** Input values, keyed by input name. Missing keys use the input default. */
+  props: Record<string, string | number | boolean>;
 }
 
 export type ActionTrigger = 'click' | 'submit' | 'change';
@@ -182,6 +218,8 @@ export interface AppDocument {
   globalStyles: StyleFile[];
   /** App level state variables. */
   state: StateVariable[];
+  /** Reusable components built in the studio. */
+  components: ComponentDef[];
   pages: PageDef[];
   settings: AppSettings;
 }
@@ -191,7 +229,10 @@ export interface NodeLocation {
   node: AppNode;
   parent: AppNode | null;
   index: number;
-  page: PageDef;
-  /** Ancestor chain from the page root down to (but excluding) the node. */
+  /** Owning page; absent when the node lives inside a library component. */
+  page?: PageDef;
+  /** Set when the node lives inside a library component. */
+  componentId?: string;
+  /** Ancestor chain from the root down to (but excluding) the node. */
   path: AppNode[];
 }

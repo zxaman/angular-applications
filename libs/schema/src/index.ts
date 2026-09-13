@@ -5,5 +5,6 @@ export * from './factory';
 export * from './tree';
 export * from './state';
 export * from './actions';
+export * from './components';
 export * from './validate';
 export * from './migrate';

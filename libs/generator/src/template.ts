@@ -23,6 +23,8 @@ export interface TemplateResult {
   modelDefaults: Record<string, string>;
   /** Class names of child components this template renders. */
   childComponents: string[];
+  /** Library component plans referenced by instance nodes. */
+  libraryPlans: ComponentPlan[];
 }
 
 const pad = (depth: number): string => '  '.repeat(depth);
@@ -76,10 +78,12 @@ class TemplateEmitter {
   private readonly handlerNames = new Set<string>();
   private readonly modelDefaults = new Map<string, string>();
   private readonly childComponents = new Set<string>();
+  private readonly libraryPlans = new Map<string, ComponentPlan>();
 
   constructor(
     private readonly plan: ComponentPlan,
     private readonly byNodeId: Map<string, ComponentPlan>,
+    private readonly byComponentId: Map<string, ComponentPlan> = new Map(),
   ) {}
 
   emit(): TemplateResult {
@@ -93,6 +97,7 @@ class TemplateEmitter {
       handlers: this.handlers,
       modelDefaults: Object.fromEntries(this.modelDefaults),
       childComponents: [...this.childComponents],
+      libraryPlans: [...this.libraryPlans.values()],
     };
   }
 
@@ -207,6 +212,30 @@ class TemplateEmitter {
     return name;
   }
 
+  /** `<app-hero title="Hello" [columns]="3" />` for a node from the library. */
+  private emitInstance(node: AppNode, component: ComponentPlan, depth: number): string {
+    this.childComponents.add(component.className);
+    this.libraryPlans.set(component.componentId ?? component.className, component);
+
+    const props = node.instance?.props ?? {};
+    const attrs = component.inputs
+      .map((input) => {
+        const raw = props[input.name] ?? input.value;
+        const value = String(raw);
+        if (input.type === 'string') {
+          if (hasBinding(value)) {
+            this.needsStore = true;
+            return ` [${input.name}]="${bindingExpression(value)}"`;
+          }
+          return value === '' ? '' : ` ${input.name}="${escapeAttr(value)}"`;
+        }
+        return ` [${input.name}]="${input.type === 'boolean' ? (raw === true || raw === 'true') : raw}"`;
+      })
+      .join('');
+
+    return `${pad(depth)}<${component.selector}${attrs} />`;
+  }
+
   private emitChildComponent(child: ComponentPlan, depth: number): string {
     this.childComponents.add(child.className);
     if (child.inputs.some((input) => hasBinding(String(input.value)))) {
@@ -216,6 +245,11 @@ class TemplateEmitter {
   }
 
   private emitNode(node: AppNode, depth: number): string {
+    const instancePlan = node.instance ? this.byComponentId.get(node.instance.componentId) : undefined;
+    if (instancePlan && instancePlan.node.id !== this.plan.node.id) {
+      return this.emitInstance(node, instancePlan, depth);
+    }
+
     const childPlan = this.byNodeId.get(node.id);
     if (childPlan && node.id !== this.plan.node.id) {
       return this.emitChildComponent(childPlan, depth);
@@ -505,8 +539,12 @@ class TemplateEmitter {
   }
 }
 
-export function emitTemplate(plan: ComponentPlan, byNodeId: Map<string, ComponentPlan>): TemplateResult {
-  return new TemplateEmitter(plan, byNodeId).emit();
+export function emitTemplate(
+  plan: ComponentPlan,
+  byNodeId: Map<string, ComponentPlan>,
+  byComponentId: Map<string, ComponentPlan> = new Map(),
+): TemplateResult {
+  return new TemplateEmitter(plan, byNodeId, byComponentId).emit();
 }
 
 /** Attributes used when a parent renders a child component. */

@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import {
+  addComponentInput,
   addNodeAction,
   addStateVariable,
   cloneDocument,
@@ -13,12 +14,24 @@ import {
   insertNode,
   moveNode,
   removeNode,
+  countInstances,
+  createComponent,
   createStateVariable,
+  detachInstance,
+  deleteComponent,
+  findComponent,
+  inferInputs,
+  insertInstance,
+  removeComponentInput,
   removeNodeAction,
   removeStateVariable,
   setNodeComponentName,
   setNodeCss,
   setNodeRepeat,
+  saveNodeAsComponent,
+  updateComponent,
+  updateComponentInput,
+  updateInstanceProp,
   updateNodeAction,
   updateStateVariable,
   setNodeStyle,
@@ -30,6 +43,8 @@ import {
   type AppNode,
   type AppSettings,
   type Breakpoint,
+  type ComponentDef,
+  type ComponentInputDef,
   type CssMap,
   type NodeAction,
   type NodeLocation,
@@ -81,6 +96,30 @@ export class BuilderStateService {
     return findPage(doc, this.activePageId()) ?? doc.pages[0] ?? null;
   });
 
+  /** When set, the canvas edits a library component instead of a page. */
+  readonly editingComponentId = signal<string | null>(null);
+
+  readonly components = computed<ComponentDef[]>(() => this.document().components);
+
+  readonly editingComponent = computed<ComponentDef | null>(() => {
+    const id = this.editingComponentId();
+    return id ? findComponent(this.document(), id) ?? null : null;
+  });
+
+  /** Root node the canvas renders: the component being edited, else the page. */
+  readonly activeRoot = computed<AppNode | null>(() => this.editingComponent()?.root ?? this.activePage()?.root ?? null);
+
+  /** The component definition behind the selected node, when it is an instance. */
+  readonly selectedInstance = computed<ComponentDef | null>(() => {
+    const node = this.selectedNode();
+    return node?.instance ? findComponent(this.document(), node.instance.componentId) ?? null : null;
+  });
+
+  readonly instanceCount = computed(() => {
+    const node = this.selectedNode();
+    return node?.instance ? countInstances(this.document(), node.instance.componentId) : 0;
+  });
+
   readonly selection = computed<NodeLocation | null>(() => {
     const id = this.selectedId();
     return id ? findNode(this.document(), id) : null;
@@ -94,8 +133,8 @@ export class BuilderStateService {
   });
 
   readonly nodeCount = computed(() => {
-    const page = this.activePage();
-    return page ? countNodes(page.root) : 0;
+    const root = this.activeRoot();
+    return root ? countNodes(root) : 0;
   });
 
   readonly widgetTypes = computed(() => widgetTypesUsed(this.document()));
@@ -435,6 +474,130 @@ export class BuilderStateService {
       return;
     }
     this.commit((doc) => setNodeRepeat(doc, id, repeat));
+  }
+
+  // ------------------------------------------------------------- components
+
+  /** Saves the selected node as a reusable component, leaving an instance behind. */
+  saveSelectedAsComponent(name: string): void {
+    const node = this.selectedNode();
+    if (!node) {
+      this.notify('Select a widget first.', 'error');
+      return;
+    }
+    if (node.instance) {
+      this.notify('That node is already a component instance.', 'error');
+      return;
+    }
+    const label = name.trim() || node.name?.trim() || this.selectedWidget()?.label || 'Component';
+    let created = '';
+    this.commit((doc) => {
+      const saved = saveNodeAsComponent(doc, node.id, label);
+      if (!saved) {
+        return doc;
+      }
+      created = saved.componentId;
+      return saved.doc;
+    });
+    if (!created) {
+      this.notify('Could not save that widget as a component.', 'error');
+      return;
+    }
+    this.notify(`Saved "${label}" to the component library`);
+  }
+
+  insertComponentInstance(componentId: string, parentId: string, index: number): void {
+    this.commit((doc) => insertInstance(doc, componentId, parentId, index) ?? doc);
+    const component = findComponent(this.document(), componentId);
+    this.notify(`Placed "${component?.name ?? 'component'}"`);
+  }
+
+  setInstanceProp(key: string, value: string | number | boolean): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => updateInstanceProp(doc, id, key, value));
+  }
+
+  /** Replaces the selected instance with an editable copy of the component. */
+  detachSelectedInstance(): void {
+    const id = this.selectedId();
+    if (!id) {
+      return;
+    }
+    this.commit((doc) => detachInstance(doc, id));
+    this.notify('Instance detached — it is now an ordinary widget');
+  }
+
+  editComponent(id: string): void {
+    this.editingComponentId.set(id);
+    this.selectedId.set(null);
+    const component = findComponent(this.document(), id);
+    this.notify(`Editing component "${component?.name ?? ''}"`);
+  }
+
+  exitComponentEditing(): void {
+    this.editingComponentId.set(null);
+    this.selectedId.set(null);
+  }
+
+  renameComponent(id: string, name: string): void {
+    if (!name.trim()) {
+      return;
+    }
+    this.commit((doc) => updateComponent(doc, id, { name: name.trim() }));
+  }
+
+  updateComponentDescription(id: string, description: string): void {
+    this.commit((doc) => updateComponent(doc, id, { description: description.trim() || undefined }));
+  }
+
+  removeComponent(id: string): void {
+    const component = findComponent(this.document(), id);
+    this.commit((doc) => deleteComponent(doc, id));
+    if (this.editingComponentId() === id) {
+      this.editingComponentId.set(null);
+    }
+    this.notify(`Deleted "${component?.name ?? 'component'}" and detached its instances`);
+  }
+
+  updateComponentInput(componentId: string, inputName: string, patch: Partial<ComponentInputDef>): void {
+    this.commit((doc) => updateComponentInput(doc, componentId, inputName, patch));
+  }
+
+  addComponentInput(componentId: string, name: string): void {
+    const input: ComponentInputDef = { name: name.trim(), label: name.trim(), type: 'string', default: '' };
+    if (!input.name) {
+      return;
+    }
+    this.commit((doc) => addComponentInput(doc, componentId, input));
+  }
+
+  removeComponentInput(componentId: string, inputName: string): void {
+    this.commit((doc) => removeComponentInput(doc, componentId, inputName));
+  }
+
+  /** Re-derives inputs from the component's current root props. */
+  refreshComponentInputs(componentId: string): void {
+    const component = findComponent(this.document(), componentId);
+    if (!component) {
+      return;
+    }
+    this.commit((doc) => updateComponent(doc, componentId, { inputs: inferInputs(component.root) }));
+    this.notify('Inputs refreshed from the component content');
+  }
+
+  /** Exposes the factory so panels can build components from scratch. */
+  createEmptyComponent(name: string): string | null {
+    const root = createNodeFromWidget('column', { name: name.trim() || 'Component' });
+    let id: string | null = null;
+    this.commit((doc) => {
+      const definition = createComponent({ name: name.trim() || 'Component', root });
+      id = definition.id;
+      return { ...doc, components: [...doc.components, definition] };
+    });
+    return id;
   }
 
   // ------------------------------------------------------------------ pages

@@ -13,6 +13,8 @@ const migrations: Record<number, Migration> = {
   0: (doc) => ({ ...doc, kind: 'appstudio.document' }),
   // 1 -> 2: app state and repeaters were introduced.
   1: (doc) => ({ ...doc, state: Array.isArray(doc['state']) ? doc['state'] : [] }),
+  // 2 -> 3: reusable component library.
+  2: (doc) => ({ ...doc, components: Array.isArray(doc['components']) ? doc['components'] : [] }),
 };
 
 export interface MigrateResult {

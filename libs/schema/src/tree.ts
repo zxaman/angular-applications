@@ -24,9 +24,19 @@ import type {
  * parent's children, the page it belongs to and its ancestor chain (outermost
  * first, excluding the node itself).
  */
+/**
+ * Finds a node in the pages or in the component library, so every tree helper
+ * works the same way while editing either one.
+ */
 export function findNode(doc: AppDocument, id: string): NodeLocation | null {
   for (const page of doc.pages) {
-    const found = locate(page.root, id, page, []);
+    const found = locate(page.root, id, { page }, []);
+    if (found) {
+      return found;
+    }
+  }
+  for (const component of doc.components ?? []) {
+    const found = locate(component.root, id, { componentId: component.id }, []);
     if (found) {
       return found;
     }
@@ -34,19 +44,25 @@ export function findNode(doc: AppDocument, id: string): NodeLocation | null {
   return null;
 }
 
-function locate(node: AppNode, id: string, page: PageDef, ancestors: AppNode[]): NodeLocation | null {
+function locate(
+  node: AppNode,
+  id: string,
+  owner: { page?: PageDef; componentId?: string },
+  ancestors: AppNode[],
+): NodeLocation | null {
   if (node.id === id) {
     const parent = ancestors.length > 0 ? ancestors[ancestors.length - 1] : null;
     return {
       node,
       parent,
       index: parent ? parent.children.findIndex((child) => child.id === id) : 0,
-      page,
+      page: owner.page,
+      componentId: owner.componentId,
       path: ancestors,
     };
   }
   for (const child of node.children) {
-    const found = locate(child, id, page, [...ancestors, node]);
+    const found = locate(child, id, owner, [...ancestors, node]);
     if (found) {
       return found;
     }
@@ -140,7 +156,15 @@ export function updateNode(doc: AppDocument, id: string, mutator: (node: AppNode
     }
     return { ...node, children: node.children.map(mapTree) };
   };
-  return { ...doc, pages: doc.pages.map((page) => ({ ...page, root: mapTree(page.root) })) };
+  return {
+    ...doc,
+    pages: doc.pages.map((page) => ({ ...page, root: mapTree(page.root) })),
+    components: (doc.components ?? []).map((component) => ({
+      ...component,
+      root: mapTree(component.root),
+      updatedAt: new Date().toISOString(),
+    })),
+  };
 }
 
 export function updateNodeProps(doc: AppDocument, id: string, patch: NodeProps): AppDocument {

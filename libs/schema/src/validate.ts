@@ -119,6 +119,14 @@ export function validateDocument(doc: AppDocument, knownWidgetTypes?: readonly s
           nodeId: node.id,
         });
       }
+      if (node.instance && !doc.components.some((component) => component.id === node.instance?.componentId)) {
+        issues.push({
+          severity: 'error',
+          path: nodePath,
+          message: 'This node references a component that no longer exists.',
+          nodeId: node.id,
+        });
+      }
       for (const action of node.actions ?? []) {
         if (action.kind === 'navigate' && (!action.pageId || !doc.pages.some((page) => page.id === action.pageId))) {
           issues.push({
@@ -182,11 +190,70 @@ export function validateDocument(doc: AppDocument, knownWidgetTypes?: readonly s
     }
   });
 
+  (doc.components ?? []).forEach((component, componentIndex) => {
+    const basePath = `components[${componentIndex}]`;
+    if (!component.name?.trim()) {
+      issues.push({ severity: 'error', path: `${basePath}.name`, message: 'Component name cannot be empty.' });
+    }
+    const names = new Set<string>();
+    for (const input of component.inputs) {
+      if (!/^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(input.name)) {
+        issues.push({
+          severity: 'error',
+          path: `${basePath}.inputs`,
+          message: `Input name "${input.name}" is not a valid identifier.`,
+        });
+      }
+      if (names.has(input.name)) {
+        issues.push({
+          severity: 'error',
+          path: `${basePath}.inputs`,
+          message: `Duplicate input "${input.name}" on component "${component.name}".`,
+        });
+      }
+      names.add(input.name);
+    }
+
+    const walk = (node: AppNode, nodePath: string): void => {
+      if (ids.has(node.id)) {
+        issues.push({ severity: 'error', path: nodePath, message: `Duplicate node id "${node.id}".`, nodeId: node.id });
+      }
+      ids.add(node.id);
+      if (knownWidgetTypes && !knownWidgetTypes.includes(node.type)) {
+        issues.push({
+          severity: 'error',
+          path: nodePath,
+          message: `Unknown widget type "${node.type}".`,
+          nodeId: node.id,
+        });
+      }
+      if (node.instance?.componentId === component.id) {
+        issues.push({
+          severity: 'error',
+          path: nodePath,
+          message: `Component "${component.name}" contains an instance of itself.`,
+          nodeId: node.id,
+        });
+      }
+      if (node.repeat?.collection && !stateNames.has(node.repeat.collection)) {
+        issues.push({
+          severity: 'error',
+          path: nodePath,
+          message: `Repeater uses unknown list state "${node.repeat.collection}".`,
+          nodeId: node.id,
+        });
+      }
+      node.children.forEach((child, index) => walk(child, `${nodePath}.children[${index}]`));
+    };
+    walk(component.root, `${basePath}.root`);
+  });
+
   return issues;
 }
 
 function allNodesFlat(doc: AppDocument): AppNode[] {
   const nodes: AppNode[] = [];
   doc.pages.forEach((page) => traverse(page.root, (node) => nodes.push(node)));
+  (doc.components ?? []).forEach((component) => traverse(component.root, (node) => nodes.push(node)));
   return nodes;
 }

@@ -110,6 +110,30 @@ describe('AppStudio shell', () => {
     expect(copies[2]!.textContent).toContain('Gamma');
   });
 
+  it('renders a component instance from the library', () => {
+    const page = state.activePage()!;
+    const cardId = state.addWidget('card', page.root.id, -1)!;
+    state.select(cardId);
+    state.updateProp('title', 'Pro plan');
+    fixture.detectChanges();
+    const baseline = root.querySelectorAll('.as-card').length;
+
+    state.saveSelectedAsComponent('Pricing Card');
+    state.insertComponentInstance(state.components()[0]!.id, page.root.id, -1);
+    fixture.detectChanges();
+
+    const secondId = state.document().pages[0]!.root.children.at(-1)!.id;
+    expect(root.querySelectorAll('.as-card').length).toBe(baseline + 1);
+    expect(root.querySelector(`[data-node-id="${secondId}"] .as-card`)!.textContent).toContain('Pro plan');
+
+    // Overriding the instance value only changes that copy.
+    state.select(cardId);
+    state.setInstanceProp('title', 'Team plan');
+    fixture.detectChanges();
+    expect(root.querySelector(`[data-node-id="${cardId}"] .as-card`)!.textContent).toContain('Team plan');
+    expect(root.querySelector(`[data-node-id="${secondId}"] .as-card`)!.textContent).toContain('Pro plan');
+  });
+
   it('runs set-state actions in preview mode', () => {
     state.addStateVariable('counter', 'number');
     const counterId = state.stateVariables()[0]!.id;

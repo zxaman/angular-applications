@@ -31,6 +31,46 @@
       }
     </div>
   } @else {
+    @if (components().length > 0) {
+      <section class="group">
+        <h3>Your components</h3>
+        <div class="component-list">
+          @for (component of components(); track component.id) {
+            <div class="component-row">
+              <button
+                type="button"
+                class="widget component"
+                draggable="true"
+                (dragstart)="onComponentDragStart($event, component)"
+                (click)="addComponent(component)"
+                [title]="component.description || 'Drop an instance of ' + component.name"
+              >
+                <ui-icon name="component" [size]="16" />
+                <span>{{ component.name }}</span>
+                <em>{{ usages(component) }}×</em>
+              </button>
+              <button
+                type="button"
+                class="btn sm ghost"
+                title="Edit component"
+                (click)="state.editComponent(component.id)"
+              >
+                <ui-icon name="settings" [size]="12" />
+              </button>
+              <button
+                type="button"
+                class="btn sm ghost danger"
+                title="Delete component"
+                (click)="state.removeComponent(component.id)"
+              >
+                <ui-icon name="trash" [size]="12" />
+              </button>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
     @for (group of groups; track group.category) {
       <section class="group">
         <h3>{{ group.label }}</h3>

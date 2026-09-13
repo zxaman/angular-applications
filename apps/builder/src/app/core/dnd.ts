@@ -2,7 +2,8 @@ export const DND_MIME = 'application/x-appstudio-node';
 
 export type DragPayload =
   | { kind: 'new'; type: string }
-  | { kind: 'move'; id: string };
+  | { kind: 'move'; id: string }
+  | { kind: 'component'; componentId: string };
 
 export function encodePayload(payload: DragPayload): string {
   return JSON.stringify(payload);
@@ -18,6 +19,9 @@ export function decodePayload(raw: string | null): DragPayload | null {
       return parsed;
     }
     if (parsed.kind === 'move' && typeof parsed.id === 'string') {
+      return parsed;
+    }
+    if (parsed.kind === 'component' && typeof parsed.componentId === 'string') {
       return parsed;
     }
     return null;

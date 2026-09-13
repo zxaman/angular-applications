@@ -17,7 +17,10 @@ import type { Granularity } from '../libs/generator/src/index';
 import {
   addNodeAction,
   addStateVariable,
+  createInstanceNode,
   createStateVariable,
+  findComponent,
+  saveNodeAsComponent,
   setNodeComponentName,
   setNodeCss,
   createAction,
@@ -118,6 +121,39 @@ doc.globalStyles.push({
   importedAt: new Date().toISOString(),
 });
 
+// A reusable component: saved once, placed twice, exported as one folder.
+const planCard = createNodeFromWidget('card', {
+  name: 'Plan',
+  props: { title: 'Pro', subtitle: 'For small teams shipping fast' },
+  children: [
+    createNodeFromWidget('text', { props: { text: 'Everything you need to launch.' } }),
+    createNodeFromWidget('button', { props: { label: 'Choose Pro' } }),
+  ],
+});
+if (page) {
+  doc = {
+    ...doc,
+    pages: doc.pages.map((entry) =>
+      entry.id === page.id ? { ...entry, root: { ...entry.root, children: [...entry.root.children, planCard] } } : entry,
+    ),
+  };
+}
+const savedComponent = saveNodeAsComponent(doc, planCard.id, 'Plan Card');
+if (savedComponent) {
+  doc = savedComponent.doc;
+  const definition = findComponent(doc, savedComponent.componentId)!;
+  const second = createInstanceNode({ component: definition, props: { title: 'Team', subtitle: 'For growing products' } });
+  const aboutPage = doc.pages[1];
+  if (aboutPage) {
+    doc = {
+      ...doc,
+      pages: doc.pages.map((entry) =>
+        entry.id === aboutPage.id ? { ...entry, root: { ...entry.root, children: [...entry.root.children, second] } } : entry,
+      ),
+    };
+  }
+}
+
 /** First node of a given widget type, depth first. */
 function findNodeById(document: typeof doc, type: string) {
   let found: { id: string } | null = null;
@@ -147,7 +183,7 @@ for (const file of result.files) {
 
 console.log(`Exported ${result.stats.files} files to ${outDir}`);
 console.log(
-  `  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}, state: ${result.stats.stateVariables}`,
+  `  pages: ${result.stats.pages}, components: ${result.stats.components}, stylesheets: ${result.stats.importedStylesheets}, state: ${result.stats.stateVariables}, actions: ${result.stats.actions}`,
 );
 for (const warning of result.warnings) {
   console.warn(`  warning: ${warning}`);

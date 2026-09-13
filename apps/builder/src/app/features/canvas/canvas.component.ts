@@ -136,6 +136,8 @@ export class CanvasComponent implements OnDestroy {
     const payload: DragPayload = event.payload;
     if (payload.kind === 'new') {
       this.state.insertWidget(payload.type, event.parentId, event.index);
+    } else if (payload.kind === 'component') {
+      this.state.insertComponentInstance(payload.componentId, event.parentId, event.index);
     } else {
       this.state.moveNode(payload.id, event.parentId, event.index);
     }
@@ -152,9 +154,9 @@ export class CanvasComponent implements OnDestroy {
   }
 
   protected addWidgetToPage(type: string): void {
-    const page = this.page();
-    if (page) {
-      this.state.addWidget(type, page.root.id, -1);
+    const root = this.state.activeRoot();
+    if (root) {
+      this.state.addWidget(type, root.id, -1);
     }
   }
 

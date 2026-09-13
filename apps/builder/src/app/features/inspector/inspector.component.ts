@@ -5,6 +5,7 @@ import {
   BREAKPOINTS,
   TRIGGER_LABELS,
   bindingPaths,
+  countInstances,
   createAction,
   nodeBindingTexts,
   sanitiseIdentifier,
@@ -213,6 +214,16 @@ export class InspectorComponent {
 
   protected setStyle(property: string, value: string): void {
     this.state.setStyle(property, value, this.editingBreakpoint());
+  }
+
+  /** Saves the selected widget to the component library. */
+  protected saveAsComponent(name: string): void {
+    this.state.saveSelectedAsComponent(name);
+  }
+
+  /** How many times a library component is placed in the project. */
+  protected usages(componentId: string): number {
+    return countInstances(this.state.document(), componentId);
   }
 
   // --------------------------------------------------------------- actions

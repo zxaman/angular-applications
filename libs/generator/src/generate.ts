@@ -94,11 +94,11 @@ export function generateProject(doc: AppDocument, options: GenerateOptions): Gen
 
   let widgets = 0;
   for (const component of plan.all) {
-    const template = emitTemplate(component, plan.byNodeId);
+    const template = emitTemplate(component, plan.byNodeId, plan.byComponentId);
     const dir = `src/app/${component.folder}`;
     files.push({
       path: `${dir}/${component.fileBase}.ts`,
-      contents: emitComponentClass(component, template, component.children, actionContext),
+      contents: emitComponentClass(component, template, [...component.children, ...template.libraryPlans], actionContext),
       kind: 'ts',
     });
     files.push({ path: `${dir}/${component.fileBase}.html`, contents: template.html, kind: 'html' });

@@ -22,6 +22,8 @@ export interface ComponentPlan {
   folder: string;
   fileBase: string;
   kind: 'page' | 'component' | 'widget';
+  /** Set for plans built from the document's component library. */
+  componentId?: string;
   page?: PageDef;
   route?: string;
   title?: string;
@@ -32,9 +34,13 @@ export interface ComponentPlan {
 
 export interface ProjectPlan {
   pages: ComponentPlan[];
+  /** Reusable components from the document library. */
+  library: ComponentPlan[];
   /** Every plan, parents before children. */
   all: ComponentPlan[];
   byNodeId: Map<string, ComponentPlan>;
+  /** Library plans by component id, for instance nodes. */
+  byComponentId: Map<string, ComponentPlan>;
   warnings: string[];
 }
 
@@ -101,7 +107,41 @@ export function planProject(doc: AppDocument, granularity: Granularity = 'compon
   const warnings: string[] = [];
   const all: ComponentPlan[] = [];
   const byNodeId = new Map<string, ComponentPlan>();
+  const byComponentId = new Map<string, ComponentPlan>();
   const pages: ComponentPlan[] = [];
+  const library: ComponentPlan[] = [];
+
+  // Library components first so their class names are stable regardless of
+  // which page happens to use them.
+  for (const component of doc.components ?? []) {
+    const slug = kebab(component.name).slice(0, 48) || 'component';
+    const plan: ComponentPlan = {
+      node: component.root,
+      className: nameRegistry.unique(`${pascal(component.name)}Component`),
+      selector: selectorFor(doc.settings.prefix, slug),
+      folder: `components/${slug}`,
+      fileBase: `${slug}.component`,
+      kind: 'component',
+      componentId: component.id,
+      inputs: component.inputs.map((input) => ({
+        prop: input.name,
+        name: input.name,
+        type: input.type,
+        value:
+          input.type === 'number'
+            ? Number.parseFloat(input.default) || 0
+            : input.type === 'boolean'
+              ? input.default === 'true'
+              : input.default,
+        label: input.label,
+      })),
+      children: [],
+    };
+    library.push(plan);
+    all.push(plan);
+    byComponentId.set(component.id, plan);
+    byNodeId.set(component.root.id, plan);
+  }
 
   for (const page of doc.pages) {
     const slug = kebab(page.name) === 'item' ? 'home' : kebab(page.name);
@@ -146,7 +186,7 @@ export function planProject(doc: AppDocument, granularity: Granularity = 'compon
     visit(page.root);
   }
 
-  return { pages, all, byNodeId, warnings };
+  return { pages, library, all, byNodeId, byComponentId, warnings };
 }
 
 function createPlan(node: AppNode, doc: AppDocument, nameRegistry: NameRegistry, warnings: string[]): ComponentPlan {

@@ -18,12 +18,14 @@ import {
 import { DomSanitizer } from '@angular/platform-browser';
 import {
   actionsForTrigger,
+  cloneNode,
   EMPTY_CONTEXT,
   evaluateBindings,
   repeatContext,
   type AppNode,
   type BindingContext,
   type Breakpoint,
+  type ComponentDef,
   type CssMap,
 } from '@appstudio/schema';
 import { getWidgetOrFallback, renderPlan, type RenderPlan } from '@appstudio/widgets';
@@ -83,6 +85,8 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
   readonly depth = input(0);
   /** State values plus any repeater locals inherited from an ancestor `@for`. */
   readonly bindings = input<BindingContext>(EMPTY_CONTEXT);
+  /** Document component library, needed to render instance nodes. */
+  readonly components = input<ComponentDef[]>([]);
 
   readonly select = output<string>();
   readonly dropNode = output<DropEvent>();
@@ -114,7 +118,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     if (!this.built) {
       return;
     }
-    if (changes['node'] || changes['breakpoint'] || changes['preview'] || changes['bindings']) {
+    if (changes['node'] || changes['breakpoint'] || changes['preview'] || changes['bindings'] || changes['components']) {
       this.build();
       return;
     }
@@ -144,8 +148,28 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     this.rootElement = null;
     this.renderer.setProperty(this.host, 'innerHTML', '');
 
-    const plan = renderPlan(this.node());
     const parentContext = this.bindings();
+    const instance = this.node().instance;
+    if (instance) {
+      const component = this.components().find((entry) => entry.id === instance.componentId);
+      if (!component) {
+        const missing = this.renderer.createElement('div');
+        this.renderer.addClass(missing, 'as-missing-component');
+        this.renderer.appendChild(missing, this.renderer.createText('Missing component'));
+        this.renderer.appendChild(this.host, missing);
+        this.rootElement = missing;
+        return;
+      }
+      // Instances are read-only: their inner widgets belong to the definition.
+      const plan = renderPlan(this.materialise(component, instance.props));
+      const element = this.createElement(plan, true, parentContext);
+      this.rootElement = element;
+      this.renderer.appendChild(this.host, element);
+      this.buildFlat(plan, element, parentContext);
+      return;
+    }
+
+    const plan = renderPlan(this.node());
     const repeat = this.node().repeat;
     const collection = repeat?.collection ? parentContext.state[repeat.collection] : undefined;
     // Cap the preview so a 1000-item list does not freeze the canvas.
@@ -175,6 +199,49 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     });
   }
 
+  /** Copies a component definition and applies the instance's input values. */
+  private materialise(component: ComponentDef, props: Record<string, string | number | boolean>): AppNode {
+    const root = cloneNode(component.root);
+    for (const [key, value] of Object.entries(props)) {
+      root.props[key] = value;
+    }
+    return root;
+  }
+
+  /**
+   * Renders a subtree as plain DOM. Used inside component instances so clicks
+   * keep selecting the instance instead of the definition's inner widgets.
+   */
+  private buildFlat(plan: RenderPlan, parentElement: HTMLElement, context: BindingContext): void {
+    for (const child of plan.children ?? []) {
+      const repeat = child.node.repeat;
+      const collection = repeat?.collection ? context.state[repeat.collection] : undefined;
+      const items: unknown[] =
+        repeat && Array.isArray(collection) ? collection.slice(0, MAX_REPEAT_PREVIEWS) : [undefined];
+
+      items.forEach((item, index) => {
+        const childContext: BindingContext = repeat
+          ? { state: context.state, locals: { ...context.locals, ...repeatContext(repeat, item, index) } }
+          : context;
+
+        const nested = child.node.instance
+          ? this.components().find((entry) => entry.id === child.node.instance?.componentId)
+          : undefined;
+        if (child.node.instance && nested) {
+          const inner = renderPlan(this.materialise(nested, child.node.instance?.props ?? {}));
+          const innerElement = this.createElement(inner, false, childContext, true);
+          this.renderer.appendChild(parentElement, innerElement);
+          this.buildFlat(inner, innerElement, childContext);
+          return;
+        }
+
+        const element = this.createElement(child, false, childContext, true);
+        this.renderer.appendChild(parentElement, element);
+        this.buildFlat(child, element, childContext);
+      });
+    }
+  }
+
   private buildChildren(plan: RenderPlan, parentElement: HTMLElement, context: BindingContext): void {
     for (const child of plan.children ?? []) {
       if (child.node.id !== this.node().id) {
@@ -196,6 +263,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     ref.setInput('preview', this.preview());
     ref.setInput('depth', this.depth() + 1);
     ref.setInput('bindings', context);
+    ref.setInput('components', this.components());
     ref.instance.select.subscribe((id) => this.select.emit(id));
     ref.instance.dropNode.subscribe((event) => this.dropNode.emit(event));
     ref.instance.dragStart.subscribe((id) => this.dragStart.emit(id));
@@ -206,7 +274,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     return ref;
   }
 
-  private createElement(plan: RenderPlan, isRoot: boolean, context: BindingContext): HTMLElement {
+  private createElement(plan: RenderPlan, isRoot: boolean, context: BindingContext, applyStyle = isRoot): HTMLElement {
     const element = this.renderer.createElement(plan.tag) as HTMLElement;
     for (const className of plan.classes) {
       this.renderer.addClass(element, className);
@@ -214,7 +282,7 @@ export class NodeViewComponent implements OnChanges, AfterViewInit, OnDestroy {
     for (const [name, value] of Object.entries(plan.attrs)) {
       this.renderer.setAttribute(element, name, evaluateBindings(value, context));
     }
-    if (isRoot) {
+    if (applyStyle) {
       const style: CssMap = resolveStyle(plan.node, this.breakpoint());
       const css = styleToString(style);
       if (css) {

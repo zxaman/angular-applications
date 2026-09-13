@@ -162,6 +162,68 @@ describe('BuilderStateService', () => {
     expect(findNode(state.document(), id)!.node.repeat).toBeUndefined();
   });
 
+  it('saves a widget as a reusable component and places instances', () => {
+    const page = state.activePage()!;
+    const id = state.addWidget('card', page.root.id, -1)!;
+    state.select(id);
+    state.setInstanceProp; // no-op guard: instances only exist after saving
+    state.saveSelectedAsComponent('Pricing Card');
+
+    expect(state.components().length).toBe(1);
+    expect(state.components()[0]!.name).toBe('Pricing Card');
+    expect(state.selectedNode()?.instance?.componentId).toBe(state.components()[0]!.id);
+
+    state.insertComponentInstance(state.components()[0]!.id, page.root.id, -1);
+    expect(state.nodeCount()).toBeGreaterThan(0);
+    expect(state.document().pages[0]!.root.children.filter((child) => child.instance).length).toBe(2);
+  });
+
+  it('edits a component definition and updates every instance', () => {
+    const page = state.activePage()!;
+    const id = state.addWidget('card', page.root.id, -1)!;
+    state.select(id);
+    state.updateProp('title', 'Pro');
+    state.saveSelectedAsComponent('Pricing Card');
+
+    const component = state.components()[0]!;
+    state.editComponent(component.id);
+    expect(state.editingComponent()?.name).toBe('Pricing Card');
+    expect(state.activeRoot()?.id).toBe(component.root.id);
+
+    state.select(component.root.id);
+    state.updateProp('title', 'Enterprise');
+    expect(state.components()[0]!.root.props['title']).toBe('Enterprise');
+
+    state.exitComponentEditing();
+    expect(state.activeRoot()?.id).toBe(page.root.id);
+  });
+
+  it('sets instance props and detaches an instance', () => {
+    const page = state.activePage()!;
+    const id = state.addWidget('card', page.root.id, -1)!;
+    state.select(id);
+    state.saveSelectedAsComponent('Pricing Card');
+
+    state.setInstanceProp('title', 'Team');
+    expect(state.selectedNode()?.instance?.props['title']).toBe('Team');
+
+    state.detachSelectedInstance();
+    expect(state.selectedNode()?.instance).toBeUndefined();
+    expect(state.selectedNode()?.props['title']).toBe('Team');
+    expect(state.components().length).toBe(1);
+  });
+
+  it('deleting a component detaches its instances', () => {
+    const page = state.activePage()!;
+    const id = state.addWidget('card', page.root.id, -1)!;
+    state.select(id);
+    state.saveSelectedAsComponent('Pricing Card');
+
+    state.removeComponent(state.components()[0]!.id);
+    expect(state.components().length).toBe(0);
+    expect(state.document().pages[0]!.root.children.some((child) => child.instance)).toBe(false);
+  });
+
   it('supports undo across state edits', () => {
     state.addStateVariable('counter', 'number');
     expect(state.stateVariables().length).toBe(1);

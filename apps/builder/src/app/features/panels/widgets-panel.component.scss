@@ -69,3 +69,33 @@
 .pad {
   padding: 0 10px 12px;
 }
+
+.widget.component {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
+  position: relative;
+}
+
+.widget.component em {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 9px;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.component-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.component-row {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+
+.component-row .widget {
+  flex: 1 1 auto;
+}

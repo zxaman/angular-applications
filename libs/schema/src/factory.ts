@@ -1,7 +1,19 @@
 import { createId } from './ids';
-import type { AppDocument, AppNode, CssMap, NodeProps, PageDef, StateType, StateVariable, ThemeTokens } from './types';
+import type {
+  AppDocument,
+  AppNode,
+  ComponentDef,
+  ComponentInputDef,
+  CssMap,
+  NodeInstance,
+  NodeProps,
+  PageDef,
+  StateType,
+  StateVariable,
+  ThemeTokens,
+} from './types';
 
-export const DOCUMENT_VERSION = 2;
+export const DOCUMENT_VERSION = 3;
 export const DOCUMENT_KIND = 'appstudio.document' as const;
 
 export const DEFAULT_THEME: ThemeTokens = {
@@ -31,6 +43,7 @@ export function createNode(
     name?: string;
     id?: string;
     componentName?: string;
+    instance?: NodeInstance;
   } = {},
 ): AppNode {
   return {
@@ -38,6 +51,7 @@ export function createNode(
     type,
     name: options.name,
     componentName: options.componentName,
+    instance: options.instance,
     props: { ...options.props },
     style: { ...options.style },
     children: options.children ? [...options.children] : [],
@@ -78,6 +92,7 @@ export function createDocument(name = 'My Application'): AppDocument {
     theme: { ...DEFAULT_THEME },
     globalStyles: [],
     state: [],
+    components: [],
     pages: [home],
     settings: {
       prefix: 'app',
@@ -115,6 +130,44 @@ export function createStateVariable(options: {
     initial: options.initial ?? defaults[type],
     description: options.description,
   };
+}
+
+/** Creates a reusable component definition from an existing subtree. */
+export function createComponent(options: {
+  name: string;
+  root: AppNode;
+  inputs?: ComponentInputDef[];
+  description?: string;
+  id?: string;
+}): ComponentDef {
+  return {
+    id: options.id ?? createId('c'),
+    name: options.name.trim() || 'Component',
+    description: options.description,
+    inputs: options.inputs ?? [],
+    root: options.root,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/** A node that renders a library component instead of its own subtree. */
+export function createInstanceNode(options: {
+  component: ComponentDef;
+  id?: string;
+  props?: Record<string, string | number | boolean>;
+}): AppNode {
+  const props: Record<string, string | number | boolean> = {};
+  for (const input of options.component.inputs) {
+    props[input.name] = input.type === 'number' ? Number(input.default) || 0 : input.type === 'boolean' ? input.default === 'true' : input.default;
+  }
+  return createNode(options.component.root.type, {
+    id: options.id,
+    name: options.component.name,
+    props: {},
+    style: {},
+    children: [],
+    instance: { componentId: options.component.id, props: { ...props, ...(options.props ?? {}) } },
+  });
 }
 
 /** `User Name` -> `userName`; keeps generated code valid. */

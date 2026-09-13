@@ -1,16 +1,124 @@
 @if (!node(); as _unused) {
-  <div class="empty">
-    <ui-icon name="widgets" [size]="26" />
-    <h3>Nothing selected</h3>
-    <p>Click a widget on the canvas, or drag one in from the widget panel. Then tune its content, styles and CSS here.</p>
-    <ul class="shortcuts">
-      <li><kbd>Del</kbd> delete</li>
-      <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate</li>
-      <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</li>
-      <li><kbd>Esc</kbd> deselect</li>
-      <li><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> reorder</li>
-    </ul>
-  </div>
+  @if (state.editingComponent(); as component) {
+    <div class="head">
+      <div class="title">
+        <ui-icon name="component" [size]="16" />
+        <div>
+          <strong>{{ component.name }}</strong>
+          <span class="mono">component</span>
+        </div>
+      </div>
+      <span class="spacer"></span>
+      <button type="button" class="btn sm ghost danger" (click)="state.removeComponent(component.id)" title="Delete component">
+        <ui-icon name="trash" [size]="13" />
+      </button>
+    </div>
+
+    <div class="scroll">
+      <section class="block">
+        <div class="field">
+          <label for="comp-name">Name</label>
+          <input
+            id="comp-name"
+            class="input"
+            [ngModel]="component.name"
+            (ngModelChange)="state.renameComponent(component.id, $event)"
+          />
+        </div>
+        <div class="field">
+          <label for="comp-description">Description</label>
+          <input
+            id="comp-description"
+            class="input"
+            placeholder="What is this for?"
+            [ngModel]="component.description ?? ''"
+            (ngModelChange)="state.updateComponentDescription(component.id, $event)"
+          />
+        </div>
+        <p class="hint pad">
+          Used by {{ usages(component.id) }} instance{{ usages(component.id) === 1 ? '' : 's' }}. Click a widget inside
+          the component to edit its content.
+        </p>
+      </section>
+
+      <section class="block">
+        <div class="block-head">
+          <h3>Inputs</h3>
+          <span class="spacer"></span>
+          <button type="button" class="btn sm ghost" (click)="state.refreshComponentInputs(component.id)">Re-detect</button>
+        </div>
+        @for (input of component.inputs; track input.name; let ci = $index) {
+          <div class="action">
+            <div class="field">
+              <label [for]="'ci-name-' + ci">Name</label>
+              <input
+                [id]="'ci-name-' + ci"
+                class="input mono"
+                [ngModel]="input.name"
+                (ngModelChange)="state.updateComponentInput(component.id, input.name, { name: $event })"
+              />
+            </div>
+            <div class="field">
+              <label [for]="'ci-label-' + ci">Label</label>
+              <input
+                [id]="'ci-label-' + ci"
+                class="input"
+                [ngModel]="input.label"
+                (ngModelChange)="state.updateComponentInput(component.id, input.name, { label: $event })"
+              />
+            </div>
+            <div class="field">
+              <label [for]="'ci-default-' + ci">Default</label>
+              <input
+                [id]="'ci-default-' + ci"
+                class="input"
+                [ngModel]="input.default"
+                (ngModelChange)="state.updateComponentInput(component.id, input.name, { default: $event })"
+              />
+            </div>
+            <div class="row">
+              <button type="button" class="btn sm ghost danger" (click)="state.removeComponentInput(component.id, input.name)">
+                <ui-icon name="trash" [size]="12" />Remove input
+              </button>
+            </div>
+          </div>
+        } @empty {
+          <p class="hint">
+            No inputs. Text and number properties become inputs automatically — use
+            <em>Re-detect</em> after editing the component's content.
+          </p>
+        }
+        <div class="field">
+          <label for="ci-new">Add input</label>
+          <div class="row">
+            <input id="ci-new" class="input" #newInput placeholder="e.g. badgeText" />
+            <button type="button" class="btn sm primary" (click)="state.addComponentInput(component.id, newInput.value)">
+              Add
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="block">
+        <button type="button" class="btn block" (click)="state.exitComponentEditing()">
+          <ui-icon name="arrow-left" [size]="13" />Back to page
+        </button>
+      </section>
+    </div>
+  } @else {
+    <div class="empty">
+      <ui-icon name="widgets" [size]="26" />
+      <h3>Nothing selected</h3>
+      <p>Click a widget on the canvas, or drag one in from the widget panel. Then tune its content, styles and CSS here.</p>
+      <ul class="shortcuts">
+        <li><kbd>Del</kbd> delete</li>
+        <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate</li>
+        <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</li>
+        <li><kbd>Esc</kbd> deselect</li>
+        <li><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> reorder</li>
+      </ul>
+    </div>
+  }
 } @else {
   <div class="head">
     <div class="title">
@@ -66,6 +174,64 @@
               content exposed as signal inputs.
             </p>
           </div>
+        </section>
+
+        <section class="block">
+          <h3>Reusable component</h3>
+          @if (state.selectedInstance(); as component) {
+            <p class="hint pad">
+              Instance of <strong>{{ component.name }}</strong> — used {{ state.instanceCount() }}
+              {{ state.instanceCount() === 1 ? 'time' : 'times' }} in this project.
+            </p>
+            @for (input of component.inputs; track input.name; let ii = $index) {
+              <div class="field">
+                <label [for]="'inst-' + ii">{{ input.label }}</label>
+                @if (input.type === 'boolean') {
+                  <select
+                    [id]="'inst-' + ii"
+                    class="input"
+                    [ngModel]="node()?.instance?.props[input.name] === true || node()?.instance?.props[input.name] === 'true'"
+                    (ngModelChange)="state.setInstanceProp(input.name, $event)"
+                  >
+                    <option [ngValue]="true">true</option>
+                    <option [ngValue]="false">false</option>
+                  </select>
+                } @else {
+                  <input
+                    [id]="'inst-' + ii"
+                    class="input"
+                    [type]="input.type === 'number' ? 'number' : 'text'"
+                    [ngModel]="node()?.instance?.props[input.name] ?? input.default"
+                    (ngModelChange)="state.setInstanceProp(input.name, $event)"
+                  />
+                }
+              </div>
+            } @empty {
+              <p class="hint">This component has no inputs yet. Edit it to add some.</p>
+            }
+            <div class="row">
+              <button type="button" class="btn sm primary" (click)="state.editComponent(component.id)">
+                <ui-icon name="component" [size]="12" />Edit component
+              </button>
+              <button type="button" class="btn sm ghost" (click)="state.detachSelectedInstance()">Detach</button>
+            </div>
+            <p class="hint">
+              Editing the component updates every instance, here and in the exported code. Detach turns this copy back
+              into ordinary widgets.
+            </p>
+          } @else {
+            <div class="field">
+              <label for="save-component">Save to library</label>
+              <div class="row">
+                <input id="save-component" class="input" #componentName placeholder="e.g. Pricing Card" />
+                <button type="button" class="btn sm primary" (click)="saveAsComponent(componentName.value)">Save</button>
+              </div>
+              <p class="hint">
+                Saves this widget and its children as a component you can drop anywhere. Its text properties become
+                inputs on every instance.
+              </p>
+            </div>
+          }
         </section>
 
         <section class="block">

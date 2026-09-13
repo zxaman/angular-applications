@@ -51,15 +51,26 @@
 
 <div #scroller class="canvas-scroll" (click)="onCanvasClick()">
   <div class="frame" [style.width.px]="frameWidth()" [style.zoom]="zoom() / 100" [class.is-preview]="preview()">
-    @if (page(); as currentPage) {
+    @if (state.editingComponent(); as editing) {
+      <div class="component-banner">
+        <ui-icon name="component" [size]="14" />
+        <span>Editing component <strong>{{ editing.name }}</strong></span>
+        <span class="spacer"></span>
+        <button type="button" class="btn sm" (click)="state.exitComponentEditing()">
+          <ui-icon name="close" [size]="12" />Back to page
+        </button>
+      </div>
+    }
+    @if (state.activeRoot(); as root) {
       <div class="as-root">
         <studio-node-view
           #rootView
-          [node]="currentPage.root"
+          [node]="root"
           [breakpoint]="breakpoint()"
           [selectedId]="state.selectedId()"
           [preview]="preview()"
           [bindings]="bindingContext()"
+          [components]="state.components()"
           (select)="onSelect($event)"
           (dropNode)="onDrop($event)"
           (dragStart)="onDragStart()"
