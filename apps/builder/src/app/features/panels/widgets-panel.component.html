@@ -1,0 +1,57 @@
+<div class="search">
+  <ui-icon name="search" [size]="14" />
+  <input
+    class="input"
+    type="search"
+    placeholder="Search widgets…"
+    [ngModel]="query()"
+    (ngModelChange)="query.set($event)"
+    aria-label="Search widgets"
+  />
+</div>
+
+<div class="list">
+  @if (results(); as found) {
+    @if (found.length === 0) {
+      <p class="empty-state">No widget matches “{{ query() }}”.</p>
+    }
+    <div class="grid">
+      @for (widget of found; track widget.type) {
+        <button
+          type="button"
+          class="widget"
+          draggable="true"
+          (dragstart)="onDragStart($event, widget)"
+          (click)="add(widget)"
+          [title]="widget.description"
+        >
+          <ui-icon [name]="widget.icon" [size]="16" />
+          <span>{{ widget.label }}</span>
+        </button>
+      }
+    </div>
+  } @else {
+    @for (group of groups; track group.category) {
+      <section class="group">
+        <h3>{{ group.label }}</h3>
+        <div class="grid">
+          @for (widget of group.widgets; track widget.type) {
+            <button
+              type="button"
+              class="widget"
+              draggable="true"
+              (dragstart)="onDragStart($event, widget)"
+              (click)="add(widget)"
+              [title]="widget.description"
+            >
+              <ui-icon [name]="widget.icon" [size]="16" />
+              <span>{{ widget.label }}</span>
+            </button>
+          }
+        </div>
+      </section>
+    }
+  }
+</div>
+
+<p class="hint pad">Drag a widget onto the canvas, or click it to drop it into the selected container.</p>

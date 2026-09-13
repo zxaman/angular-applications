@@ -1,0 +1,31 @@
+{
+  "name": "appstudio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AppStudio \u2014 a browser based visual builder for Angular applications. Monorepo root.",
+  "workspaces": [
+    "apps/*",
+    "libs/*"
+  ],
+  "scripts": {
+    "start": "npm run start --workspace builder",
+    "dev": "npm run start --workspace builder",
+    "build": "npm run build:libs && npm run build:builder",
+    "build:libs": "npm run typecheck --workspace @appstudio/schema --workspace @appstudio/widgets --workspace @appstudio/generator --workspace @appstudio/ui",
+    "build:builder": "npm run build --workspace builder",
+    "typecheck": "npm run typecheck --workspace @appstudio/schema --workspace @appstudio/widgets --workspace @appstudio/generator --workspace builder",
+    "test": "npm run test:libs && npm run test:builder",
+    "test:libs": "vitest run --config vitest.config.ts",
+    "test:libs:watch": "vitest --config vitest.config.ts",
+    "test:builder": "npm run test --workspace builder -- --watch=false",
+    "clean": "node -e \"const fs=require('fs');['dist','node_modules/.cache','apps/builder/.angular','libs/schema/dist','libs/widgets/dist','libs/generator/dist'].forEach(p=>fs.rmSync(p,{recursive:true,force:true}))\"",
+    "export:sample": "tsx scripts/export-sample.mts"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2",
+    "tsx": "^4.20.0"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

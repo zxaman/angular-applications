@@ -1,0 +1,119 @@
+<div class="scroll">
+  <section class="block">
+    <h3>Project</h3>
+    <div class="field">
+      <label for="meta-name">Project name</label>
+      <input
+        id="meta-name"
+        class="input"
+        [ngModel]="state.document().meta.name"
+        (ngModelChange)="state.updateMeta({ name: $event })"
+      />
+    </div>
+    <div class="field">
+      <label for="meta-description">Description</label>
+      <textarea
+        id="meta-description"
+        class="input"
+        rows="2"
+        [ngModel]="state.document().meta.description"
+        (ngModelChange)="state.updateMeta({ description: $event })"
+      ></textarea>
+    </div>
+  </section>
+
+  <section class="block">
+    <h3>Colours</h3>
+    <div class="swatches">
+      @for (field of colors; track field.key) {
+        <label class="swatch">
+          <input type="color" [value]="color(field.key)" (input)="setColor(field.key, $any($event.target).value)" />
+          <span>{{ field.label }}</span>
+        </label>
+      }
+    </div>
+  </section>
+
+  <section class="block">
+    <h3>Shape &amp; spacing</h3>
+    <div class="field">
+      <label for="theme-radius">Corner radius — {{ theme().radius }}px</label>
+      <input
+        id="theme-radius"
+        class="input"
+        type="range"
+        min="0"
+        max="28"
+        [ngModel]="theme().radius"
+        (ngModelChange)="setNumber('radius', $event)"
+      />
+    </div>
+    <div class="field">
+      <label for="theme-spacing">Spacing unit — {{ theme().spacing }}px</label>
+      <input
+        id="theme-spacing"
+        class="input"
+        type="range"
+        min="2"
+        max="20"
+        [ngModel]="theme().spacing"
+        (ngModelChange)="setNumber('spacing', $event)"
+      />
+    </div>
+    <div class="field">
+      <label for="theme-font-scale">Root font size — {{ theme().fontScale }}px</label>
+      <input
+        id="theme-font-scale"
+        class="input"
+        type="range"
+        min="12"
+        max="22"
+        [ngModel]="theme().fontScale"
+        (ngModelChange)="setNumber('fontScale', $event)"
+      />
+    </div>
+  </section>
+
+  <section class="block">
+    <h3>Typography</h3>
+    <div class="field">
+      <label for="theme-heading">Heading font</label>
+      <input
+        id="theme-heading"
+        class="input"
+        [ngModel]="theme().fontHeading"
+        (ngModelChange)="setText('fontHeading', $event)"
+      />
+    </div>
+    <div class="field">
+      <label for="theme-body">Body font</label>
+      <input id="theme-body" class="input" [ngModel]="theme().fontBody" (ngModelChange)="setText('fontBody', $event)" />
+    </div>
+  </section>
+
+  <section class="block">
+    <h3>Global stylesheets</h3>
+    <label class="btn block">
+      <ui-icon name="upload" [size]="14" />
+      Import .css / .scss
+      <input type="file" accept=".css,.scss,.txt" multiple hidden (change)="importStyles($any($event.target).files)" />
+    </label>
+    <p class="hint">Imported files are copied into the exported project and registered in <span class="mono">angular.json</span>.</p>
+
+    @if (globalStyles().length > 0) {
+      <ul class="files">
+        @for (style of globalStyles(); track style.name) {
+          <li>
+            <ui-icon name="file" [size]="13" />
+            <span class="name">{{ style.name }}</span>
+            <span class="spacer"></span>
+            <span class="badge">{{ style.content.split('\n').length }} lines</span>
+            <button type="button" class="btn sm ghost danger" (click)="state.removeGlobalStyle(style.name)">
+              <ui-icon name="trash" [size]="12" />
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</div>

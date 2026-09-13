@@ -1,0 +1,68 @@
+<studio-topbar (openExport)="openExport()" (toggleLeft)="state.toggleLeft()" (toggleRight)="state.toggleRight()" />
+
+<div class="workspace">
+  <nav class="rail" aria-label="Panels">
+    <button
+      type="button"
+      [class.active]="state.leftPanel() === 'widgets'"
+      (click)="state.setLeftPanel('widgets')"
+      title="Widgets"
+    >
+      <ui-icon name="widgets" [size]="17" />
+      <span>Widgets</span>
+    </button>
+    <button
+      type="button"
+      [class.active]="state.leftPanel() === 'layers'"
+      (click)="state.setLeftPanel('layers')"
+      title="Layers"
+    >
+      <ui-icon name="layers" [size]="17" />
+      <span>Layers</span>
+    </button>
+    <button type="button" [class.active]="state.leftPanel() === 'pages'" (click)="state.setLeftPanel('pages')" title="Pages">
+      <ui-icon name="pages" [size]="17" />
+      <span>Pages</span>
+    </button>
+    <button type="button" [class.active]="state.leftPanel() === 'theme'" (click)="state.setLeftPanel('theme')" title="Theme">
+      <ui-icon name="brush" [size]="17" />
+      <span>Theme</span>
+    </button>
+    <span class="spacer"></span>
+    <button type="button" (click)="openExport()" title="Export code">
+      <ui-icon name="export" [size]="17" />
+      <span>Export</span>
+    </button>
+  </nav>
+
+  <aside class="left" [class.closed]="!state.leftOpen()" aria-label="Library">
+    @switch (state.leftPanel()) {
+      @case ('widgets') {
+        <studio-widgets-panel />
+      }
+      @case ('layers') {
+        <studio-layers-panel />
+      }
+      @case ('pages') {
+        <studio-pages-panel />
+      }
+      @case ('theme') {
+        <studio-theme-panel />
+      }
+    }
+  </aside>
+
+  <main class="canvas-area">
+    <studio-canvas />
+  </main>
+
+  <aside class="right" [class.closed]="!state.rightOpen()" aria-label="Inspector">
+    <studio-inspector />
+  </aside>
+</div>
+
+<studio-statusbar />
+
+@if (exportOpen()) {
+  <studio-export-panel (close)="closeExport()" />
+}

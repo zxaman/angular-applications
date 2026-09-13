@@ -1,0 +1,78 @@
+<div class="canvas-toolbar">
+  <div class="device-switch" role="tablist" aria-label="Preview size">
+    @for (bp of breakpoints; track bp.id) {
+      <button
+        type="button"
+        role="tab"
+        class="device"
+        [class.active]="breakpoint() === bp.id"
+        [attr.aria-selected]="breakpoint() === bp.id"
+        [title]="bp.description"
+        (click)="setBreakpoint(bp.id)"
+      >
+        <ui-icon [name]="bp.id === 'base' ? 'mobile' : bp.id === 'sm' ? 'mobile' : bp.id === 'md' ? 'tablet' : 'desktop'" [size]="15" />
+        <span class="label">{{ bp.label }}</span>
+      </button>
+    }
+  </div>
+
+  <div class="spacer"></div>
+
+  <div class="zoom">
+    <button type="button" class="btn icon ghost" (click)="zoomBy(-10)" title="Zoom out"><ui-icon name="minus" [size]="14" /></button>
+    <button type="button" class="zoom-value" (click)="state.setZoom(100)">{{ zoom() }}%</button>
+    <button type="button" class="btn icon ghost" (click)="zoomBy(10)" title="Zoom in"><ui-icon name="plus" [size]="14" /></button>
+  </div>
+
+  <button type="button" class="btn" [class.primary]="preview()" (click)="togglePreview()">
+    <ui-icon name="eye" [size]="14" />
+    {{ preview() ? 'Exit preview' : 'Preview' }}
+  </button>
+</div>
+
+@if (path().length > 0 && !preview()) {
+  <div class="selection-bar">
+    <div class="crumbs">
+      @for (crumb of path(); track crumb.id; let last = $last) {
+        <button type="button" class="crumb" [class.current]="last" (click)="onSelect(crumb.id)">
+          {{ crumb.label }}
+        </button>
+        @if (!last) {
+          <ui-icon name="chevron" [size]="12" />
+        }
+      }
+    </div>
+    <div class="spacer"></div>
+    <button type="button" class="btn sm ghost" (click)="duplicateSelected()" title="Duplicate (Ctrl+D)"><ui-icon name="copy" [size]="13" />Duplicate</button>
+    <button type="button" class="btn sm ghost" (click)="wrapSelected()" title="Wrap in a container"><ui-icon name="box" [size]="13" />Wrap</button>
+    <button type="button" class="btn sm ghost danger" (click)="deleteSelected()" title="Delete (Del)"><ui-icon name="trash" [size]="13" />Delete</button>
+  </div>
+}
+
+<div #scroller class="canvas-scroll" (click)="onCanvasClick()">
+  <div class="frame" [style.width.px]="frameWidth()" [style.zoom]="zoom() / 100" [class.is-preview]="preview()">
+    @if (page(); as currentPage) {
+      <div class="as-root">
+        <studio-node-view
+          #rootView
+          [node]="currentPage.root"
+          [breakpoint]="breakpoint()"
+          [selectedId]="state.selectedId()"
+          [preview]="preview()"
+          (select)="onSelect($event)"
+          (dropNode)="onDrop($event)"
+          (dragStart)="onDragStart()"
+          (dragEnd)="onDragEnd()"
+        />
+      </div>
+    } @else {
+      <div class="no-page">
+        <p>Create a page to start designing.</p>
+        <button type="button" class="btn primary" (click)="state.addPage('Home')">Add a page</button>
+      </div>
+    }
+  </div>
+  <p class="canvas-hint">
+    {{ frameWidth() }}px · {{ state.nodeCount() }} widgets · drag from the widget panel or click a widget to edit it
+  </p>
+</div>

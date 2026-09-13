@@ -1,0 +1,19 @@
+{
+  "name": "@appstudio/widgets",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Widget catalog, property schemas and the shared render plan used by the canvas and the generator.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.lib.json"
+  },
+  "dependencies": {
+    "@appstudio/schema": "*"
+  },
+  "sideEffects": false
+}

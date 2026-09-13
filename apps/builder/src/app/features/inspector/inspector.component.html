@@ -1,0 +1,214 @@
+@if (!node(); as _unused) {
+  <div class="empty">
+    <ui-icon name="widgets" [size]="26" />
+    <h3>Nothing selected</h3>
+    <p>Click a widget on the canvas, or drag one in from the widget panel. Then tune its content, styles and CSS here.</p>
+    <ul class="shortcuts">
+      <li><kbd>Del</kbd> delete</li>
+      <li><kbd>Ctrl</kbd>+<kbd>D</kbd> duplicate</li>
+      <li><kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</li>
+      <li><kbd>Esc</kbd> deselect</li>
+      <li><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> reorder</li>
+    </ul>
+  </div>
+} @else {
+  <div class="head">
+    <div class="title">
+      <ui-icon [name]="widget()?.icon ?? 'box'" [size]="16" />
+      <div>
+        <strong>{{ node()?.name || widget()?.label }}</strong>
+        <span class="mono">{{ node()?.type }}</span>
+      </div>
+    </div>
+    <span class="spacer"></span>
+    <button type="button" class="btn sm ghost" (click)="state.selectParent()" title="Select parent"><ui-icon name="arrow-up" [size]="13" /></button>
+    <button type="button" class="btn sm ghost" (click)="state.duplicateSelected()" title="Duplicate"><ui-icon name="copy" [size]="13" /></button>
+    <button type="button" class="btn sm ghost danger" (click)="state.deleteSelected()" title="Delete"><ui-icon name="trash" [size]="13" /></button>
+  </div>
+
+  <div class="tabs">
+    <button type="button" [class.active]="state.rightPanel() === 'design'" (click)="state.setRightPanel('design')">Design</button>
+    <button type="button" [class.active]="state.rightPanel() === 'styles'" (click)="state.setRightPanel('styles')">
+      Styles
+      @if (overrideCount() > 0) {
+        <span class="badge accent">{{ overrideCount() }}</span>
+      }
+    </button>
+    <button type="button" [class.active]="state.rightPanel() === 'code'" (click)="state.setRightPanel('code')">Code</button>
+  </div>
+
+  <div class="scroll">
+    @switch (state.rightPanel()) {
+      @case ('design') {
+        <section class="block">
+          <div class="field">
+            <label for="node-name">Layer name</label>
+            <input
+              id="node-name"
+              class="input"
+              [ngModel]="node()?.name ?? ''"
+              placeholder="{{ widget()?.label }}"
+              (ngModelChange)="state.renameNode($event)"
+            />
+          </div>
+          <div class="field">
+            <label for="node-component">Extract as component</label>
+            <input
+              id="node-component"
+              class="input"
+              [ngModel]="node()?.componentName ?? ''"
+              placeholder="e.g. Hero Section"
+              (ngModelChange)="state.setComponentName($event)"
+            />
+            <p class="hint">
+              Gives this widget its own folder in the export:
+              <span class="mono">.ts</span>, <span class="mono">.html</span> and <span class="mono">.scss</span>, with its
+              content exposed as signal inputs.
+            </p>
+          </div>
+        </section>
+
+        @for (group of propGroups(); track group.title) {
+          <section class="block">
+            <h3>{{ group.title }}</h3>
+            @for (prop of group.props; track trackProp($index, prop)) {
+              <studio-prop-field
+                [schema]="prop"
+                [value]="$any(node()?.props[prop.key] ?? null)"
+                (change)="state.updateProp(prop.key, $event)"
+              />
+            }
+          </section>
+        }
+
+        <p class="hint pad">{{ widget()?.description }}</p>
+      }
+
+      @case ('styles') {
+        <div class="bp-picker">
+          @for (bp of breakpoints; track bp.id) {
+            <button
+              type="button"
+              [class.active]="editingBreakpoint() === bp.id"
+              (click)="selectBreakpoint(bp.id)"
+              [title]="bp.description"
+            >
+              {{ bp.label }}
+            </button>
+          }
+        </div>
+        <p class="hint pad">
+          @if (editingBreakpoint() === 'base') {
+            Editing the base styles — they apply to every screen size.
+          } @else {
+            Editing the override for {{ editingBreakpoint() }} screens and up. Unset properties fall back to the base value.
+          }
+        </p>
+
+        @for (group of styleGroups; track group.title) {
+          <section class="block">
+            <div class="block-head">
+              <h3>{{ group.title }}</h3>
+              @if (editingBreakpoint() !== 'base') {
+                <button type="button" class="btn sm ghost" (click)="clearBreakpoint()">Clear overrides</button>
+              }
+            </div>
+            @for (field of group.fields; track field.prop) {
+              <div class="field" [class.overridden]="hasOverride(field.prop)">
+                <label [for]="'style-' + field.prop">{{ field.label }}</label>
+                @if (field.type === 'select') {
+                  <select
+                    [id]="'style-' + field.prop"
+                    class="input"
+                    [ngModel]="styleValue(field.prop)"
+                    (ngModelChange)="setStyle(field.prop, $event)"
+                  >
+                    <option value="">—</option>
+                    @for (option of field.options ?? []; track option) {
+                      <option [value]="option">{{ option }}</option>
+                    }
+                  </select>
+                } @else if (field.type === 'color') {
+                  <div class="color-row">
+                    <input
+                      type="color"
+                      class="input"
+                      [value]="styleValue(field.prop) || '#000000'"
+                      (input)="setStyle(field.prop, $any($event.target).value)"
+                    />
+                    <input
+                      [id]="'style-' + field.prop"
+                      class="input"
+                      type="text"
+                      [ngModel]="styleValue(field.prop)"
+                      (ngModelChange)="setStyle(field.prop, $event)"
+                      [placeholder]="field.placeholder ?? ''"
+                    />
+                  </div>
+                } @else {
+                  <input
+                    [id]="'style-' + field.prop"
+                    class="input"
+                    type="text"
+                    [ngModel]="styleValue(field.prop)"
+                    (ngModelChange)="setStyle(field.prop, $event)"
+                    [placeholder]="field.placeholder ?? ''"
+                  />
+                }
+              </div>
+            }
+          </section>
+        }
+
+        <section class="block">
+          <h3>Custom CSS for this widget</h3>
+          <p class="hint pad">
+            Import your own stylesheet or write CSS here. It is exported into this component's
+            <span class="mono">.scss</span> file, so it stays scoped to the widget.
+          </p>
+          <label class="btn block">
+            <ui-icon name="upload" [size]="14" />
+            Import stylesheet
+            <input type="file" accept=".css,.scss,.txt" hidden (change)="importCustomCss($any($event.target).files)" />
+          </label>
+          @if (customCssName()) {
+            <p class="hint pad">Loaded from <span class="mono">{{ customCssName() }}</span></p>
+          }
+          <textarea
+            class="input mono"
+            rows="8"
+            spellcheck="false"
+            placeholder=".my-widget {&#10;  border: 1px solid var(--as-border);&#10;}"
+            [ngModel]="customCss()"
+            (ngModelChange)="customCss.set($event)"
+          ></textarea>
+          <div class="row">
+            <button type="button" class="btn primary sm" (click)="applyCustomCss()">Apply CSS</button>
+            <button type="button" class="btn ghost sm" (click)="loadCustomCss()">Revert</button>
+            <button type="button" class="btn ghost sm danger" (click)="clearCustomCss()">Clear</button>
+          </div>
+        </section>
+      }
+
+      @case ('code') {
+        <section class="block">
+          <div class="block-head">
+            <h3>Template</h3>
+            <button type="button" class="btn sm ghost" (click)="copy(generatedHtml())"><ui-icon name="copy" [size]="12" />Copy</button>
+          </div>
+          <pre class="code">{{ generatedHtml() }}</pre>
+        </section>
+        <section class="block">
+          <div class="block-head">
+            <h3>Styles</h3>
+            <button type="button" class="btn sm ghost" (click)="copy(generatedScss())"><ui-icon name="copy" [size]="12" />Copy</button>
+          </div>
+          <pre class="code">{{ generatedScss() }}</pre>
+        </section>
+        <p class="hint pad">
+          This is what the exporter writes for this widget. Extract it as a component (Design tab) to give it its own files.
+        </p>
+      }
+    }
+  </div>
+}

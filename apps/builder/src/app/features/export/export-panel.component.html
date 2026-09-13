@@ -1,0 +1,134 @@
+<div class="backdrop" (click)="close.emit()"></div>
+<div class="drawer" role="dialog" aria-modal="true" aria-label="Export project">
+  <header>
+    <ui-icon name="export" [size]="16" />
+    <h2>Export Angular project</h2>
+    <span class="spacer"></span>
+    <button type="button" class="btn icon ghost" (click)="close.emit()" title="Close">
+      <ui-icon name="close" [size]="16" />
+    </button>
+  </header>
+
+  <div class="body">
+    <section class="options">
+      <div class="field">
+        <label for="export-name">Project name</label>
+        <input
+          id="export-name"
+          class="input"
+          [ngModel]="settings().projectName"
+          (ngModelChange)="update({ projectName: $event })"
+          placeholder="my-app"
+        />
+      </div>
+      <div class="field">
+        <label for="export-prefix">Component prefix</label>
+        <input
+          id="export-prefix"
+          class="input"
+          [ngModel]="settings().prefix"
+          (ngModelChange)="update({ prefix: $event })"
+          placeholder="app"
+        />
+      </div>
+
+      <div class="field">
+        <label>Component separation</label>
+        <div class="granularities">
+          @for (option of granularities; track option.id) {
+            <label class="choice" [class.active]="settings().granularity === option.id">
+              <input
+                type="radio"
+                name="granularity"
+                [value]="option.id"
+                [checked]="settings().granularity === option.id"
+                (change)="update({ granularity: option.id })"
+              />
+              <span>
+                <strong>{{ option.label }}</strong>
+                <em>{{ option.hint }}</em>
+              </span>
+            </label>
+          }
+        </div>
+      </div>
+
+      <label class="checkbox">
+        <input type="checkbox" [ngModel]="settings().includeTests" (ngModelChange)="update({ includeTests: $event })" />
+        Include vitest smoke specs for pages
+      </label>
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          [ngModel]="settings().includeCapacitor"
+          (ngModelChange)="update({ includeCapacitor: $event })"
+        />
+        Add Capacitor config (optional native build)
+      </label>
+    </section>
+
+    <div class="stats">
+      <div><strong>{{ stats().files }}</strong><span>files</span></div>
+      <div><strong>{{ stats().pages }}</strong><span>pages</span></div>
+      <div><strong>{{ stats().components }}</strong><span>components</span></div>
+      <div><strong>{{ stats().importedStylesheets }}</strong><span>stylesheets</span></div>
+    </div>
+
+    @if (issues().length > 0 || warnings().length > 0) {
+      <ul class="issues">
+        @for (issue of issues(); track issue.path + issue.message) {
+          <li [class.error]="issue.severity === 'error'">
+            <ui-icon [name]="issue.severity === 'error' ? 'warning' : 'info'" [size]="13" />
+            {{ issue.message }}
+          </li>
+        }
+        @for (warning of warnings(); track warning) {
+          <li>
+            <ui-icon name="info" [size]="13" />
+            {{ warning }}
+          </li>
+        }
+      </ul>
+    }
+
+    <div class="actions">
+      <button type="button" class="btn primary" [disabled]="export.busy()" (click)="download()">
+        <ui-icon name="download" [size]="14" />
+        {{ export.busy() ? 'Packaging…' : 'Download .zip' }}
+      </button>
+      <button type="button" class="btn" (click)="export.copyAll()"><ui-icon name="copy" [size]="14" />Copy all</button>
+    </div>
+
+    <div class="files">
+      <div class="search">
+        <ui-icon name="search" [size]="13" />
+        <input class="input" type="search" placeholder="Filter files…" [ngModel]="filter()" (ngModelChange)="filter.set($event)" />
+      </div>
+      @for (group of groups(); track group.folder) {
+        <div class="folder">
+          <div class="folder-name"><ui-icon name="folder" [size]="13" />{{ group.folder }}</div>
+          @for (file of group.files; track file.path) {
+            <button type="button" class="file" (click)="select(file)">
+              <ui-icon name="file" [size]="13" />
+              <span class="name">{{ file.path.split('/').pop() }}</span>
+              <span class="spacer"></span>
+              <span class="badge">{{ file.kind }}</span>
+            </button>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  @if (openFile(); as file) {
+    <div class="preview">
+      <header>
+        <span class="mono">{{ file.path }}</span>
+        <span class="spacer"></span>
+        <button type="button" class="btn sm ghost" (click)="copyFile()"><ui-icon name="copy" [size]="12" />Copy</button>
+        <button type="button" class="btn sm ghost" (click)="closeFile()"><ui-icon name="close" [size]="12" /></button>
+      </header>
+      <pre>{{ file.contents }}</pre>
+    </div>
+  }
+</div>

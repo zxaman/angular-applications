@@ -1,0 +1,24 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": [],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "paths": {
+      "@appstudio/schema": [
+        "../schema/src/index.ts"
+      ],
+      "@appstudio/widgets": [
+        "../widgets/src/index.ts"
+      ]
+    },
+    "noEmit": true
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/**/*.spec.ts",
+    "dist"
+  ]
+}

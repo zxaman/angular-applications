@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Compiled output
+dist/
+out-tsc/
+tmp/
+*.tsbuildinfo
+
+# Angular
+.angular/
+.sass-cache/
+
+# Test / coverage
+coverage/
+.nyc_output/
+
+# Generated apps exported from the studio are user data, not repo content
+exports/
+
+# Editors / OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.history/
+.DS_Store
+Thumbs.db
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.local

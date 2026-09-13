@@ -1,0 +1,139 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.workspace {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+}
+
+/* ---------- icon rail ---------- */
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  flex: 0 0 56px;
+  padding: 8px 6px;
+  border-right: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.rail button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 2px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rail button:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.rail button.active {
+  background: var(--accent-soft);
+  color: #b6b9ff;
+}
+
+.rail .spacer {
+  flex: 1 1 auto;
+}
+
+/* ---------- side panels ---------- */
+.left,
+.right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  transition: transform 0.18s ease;
+}
+
+.left {
+  flex: 0 0 var(--sidebar-w);
+  border-right: 1px solid var(--line);
+}
+
+.right {
+  flex: 0 0 var(--inspector-w);
+  border-left: 1px solid var(--line);
+}
+
+.canvas-area {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* ---------- narrow screens: panels slide over the canvas ---------- */
+@media (max-width: 1280px) {
+  .left,
+  .right {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: 45;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.55);
+  }
+
+  .left {
+    left: 56px;
+    transform: translateX(calc(-100% - 56px));
+  }
+
+  .right {
+    right: 0;
+    transform: translateX(100%);
+  }
+
+  .left:not(.closed) {
+    transform: none;
+  }
+
+  .right:not(.closed) {
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .rail {
+    flex: 0 0 46px;
+  }
+  .rail button span {
+    display: none;
+  }
+  .left {
+    left: 46px;
+    width: calc(100vw - 46px);
+    flex-basis: auto;
+    transform: translateX(calc(-100% - 46px));
+  }
+  .right {
+    width: 100vw;
+    flex-basis: auto;
+  }
+}
+
+@media (min-width: 1281px) {
+  .left.closed,
+  .right.closed {
+    display: none;
+  }
+}

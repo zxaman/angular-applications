@@ -1,0 +1,70 @@
+<div class="left">
+  <button type="button" class="btn icon ghost panel-toggle" (click)="toggleLeft.emit()" title="Toggle panels">
+    <ui-icon name="menu" [size]="16" />
+  </button>
+
+  <span class="logo" title="AppStudio"><ui-icon name="logo" [size]="20" /></span>
+
+  <div class="project">
+    <input
+      class="name"
+      [ngModel]="state.document().meta.name"
+      (ngModelChange)="state.updateMeta({ name: $event })"
+      aria-label="Project name"
+    />
+    <span class="meta">
+      @if (state.dirty()) {
+        <span class="dot"></span> unsaved
+      } @else {
+        saved{{ state.lastSavedAt() ? ' · ' + (state.lastSavedAt() | date: 'HH:mm') : '' }}
+      }
+    </span>
+  </div>
+</div>
+
+<div class="center">
+  <div class="group">
+    <button type="button" class="btn icon ghost" [disabled]="!state.canUndo()" (click)="undo()" title="Undo (Ctrl+Z)">
+      <ui-icon name="undo" [size]="15" />
+    </button>
+    <button type="button" class="btn icon ghost" [disabled]="!state.canRedo()" (click)="redo()" title="Redo (Ctrl+Shift+Z)">
+      <ui-icon name="redo" [size]="15" />
+    </button>
+  </div>
+
+  <div class="group">
+    <select class="input select" (change)="newProject($any($event.target).value)" [value]="''" aria-label="Start from template">
+      <option value="" disabled selected>New from template…</option>
+      @for (template of templates; track template.id) {
+        <option [value]="template.id">{{ template.label }}</option>
+      }
+    </select>
+  </div>
+</div>
+
+<div class="right">
+  <button type="button" class="btn ghost" (click)="save()" title="Save to this browser">
+    <ui-icon name="save" [size]="14" />
+    <span class="hide-sm">Save</span>
+  </button>
+
+  <label class="btn ghost" title="Import a .appstudio.json project">
+    <ui-icon name="upload" [size]="14" />
+    <span class="hide-sm">Import</span>
+    <input type="file" accept=".json,application/json" hidden (change)="importProject($any($event.target).files)" />
+  </label>
+
+  <button type="button" class="btn ghost" (click)="downloadProject()" title="Download the project file">
+    <ui-icon name="download" [size]="14" />
+    <span class="hide-sm">Project</span>
+  </button>
+
+  <button type="button" class="btn primary" (click)="openExport.emit()">
+    <ui-icon name="export" [size]="14" />
+    Export code
+  </button>
+
+  <button type="button" class="btn icon ghost panel-toggle" (click)="toggleRight.emit()" title="Toggle inspector">
+    <ui-icon name="settings" [size]="16" />
+  </button>
+</div>
